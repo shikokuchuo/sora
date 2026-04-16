@@ -15,10 +15,7 @@ test_error <- function(x, msg = "") {
 
 library(sora)
 
-# ================================================================
 # Unit tests: Tier 1 — pass-through for non-ALTREP types
-# ================================================================
-
 
 x <- y ~ x + z
 test_identical(sora(x), x)
@@ -26,10 +23,7 @@ test_identical(sora(x), x)
 x <- NULL
 test_null(sora(x))
 
-# ================================================================
 # Unit tests: Tier 2 — bare vector round-trip via map_shared
-# ================================================================
-
 
 # Double
 x <- as.double(1:1000)
@@ -76,10 +70,7 @@ sx <- sora(x)
 y <- map_shared(shared_name(sx))
 test_equal(length(y), 0L)
 
-# ================================================================
 # Unit tests: Tier 2 — ALTLIST round-trip
-# ================================================================
-
 
 # Data frame with numeric and integer columns
 df <- data.frame(a = as.double(1:100), b = 1:100, c = rep(TRUE, 100))
@@ -119,10 +110,7 @@ df3$a <- df3$a * 2
 test_class(df3, "data.frame")
 test_equal(df3$a, df$a * 2)
 
-# ================================================================
 # Unit tests: ALTREP COW (copy-on-write)
-# ================================================================
-
 
 x <- as.double(1:100)
 sx <- sora(x)
@@ -138,10 +126,7 @@ test_equal(y2[1], 999)
 z <- map_shared(shared_name(sx))
 test_equal(z[1], original)
 
-# ================================================================
 # Unit tests: R API — share / map_shared / shared_name / is_shared
-# ================================================================
-
 
 # Return format — share returns usable objects
 x <- sora(as.double(1:10))
@@ -189,10 +174,7 @@ x <- sora(1:10)
 test_true(is_shared(x))
 test_false(is_shared(1:10))
 
-# ================================================================
 # Unit tests: Tier 2 — ALTSTRING round-trip
-# ================================================================
-
 
 # Basic string vector
 x <- c("hello", "world", "foo")
@@ -263,10 +245,7 @@ test_identical(y2[1], "modified")
 z <- map_shared(shared_name(sx))
 test_identical(z[1], "original")
 
-# ================================================================
 # Unit tests: ALTREP serialization hooks
-# ================================================================
-
 
 # Standalone double vector round-trip
 x <- sora(rnorm(1000))
@@ -343,10 +322,7 @@ x <- sora(rnorm(1e5))
 buf <- serialize(x, NULL)
 test_true(length(buf) < 1000)
 
-# ================================================================
 # Unit tests: Tier 2 — attributed vectors
-# ================================================================
-
 
 # Named double vector
 x <- c(a = 1, b = 2, c = 3)
@@ -470,10 +446,7 @@ test_class(y, "factor")
 test_identical(levels(col), levels(y))
 test_identical(as.integer(col), as.integer(y))
 
-# ================================================================
 # Unit tests: GC-based automatic cleanup
-# ================================================================
-
 
 # Shared object can be GC'd without explicit unshare
 x <- sora(1:100)
@@ -511,10 +484,7 @@ gc()
 # Now it should be gone
 test_error(map_shared(nm), "not found")
 
-# ================================================================
 # Unit tests: Pairlist input (coerced to VECSXP)
-# ================================================================
-
 
 pl <- pairlist(a = 1, b = 2L, c = "hello")
 spl <- sora(pl)
@@ -530,10 +500,7 @@ test_identical(spl[[1]][], spl2[[1]][])
 test_identical(spl[[2]][], spl2[[2]][])
 test_identical(spl[[3]], spl2[[3]])
 
-# ================================================================
 # Unit tests: Tier 1 elements in list
-# ================================================================
-
 
 lst <- list(fn = sum, val = 1:5, env = globalenv())
 slst <- sora(lst)
@@ -547,10 +514,7 @@ y <- unserialize(buf)
 test_identical(y$fn, sum)
 test_identical(y$val[], 1:5)
 
-# ================================================================
 # Unit tests: Named character vector inside a list
-# ================================================================
-
 
 lst <- list(x = c(a = "hello", b = "world"), y = 1:3)
 slst <- sora(lst)
@@ -571,10 +535,7 @@ y <- unserialize(buf)
 test_identical(y, c(a = "hello", b = "world"))
 test_identical(names(y), c("a", "b"))
 
-# ================================================================
 # Unit tests: String vector Dataptr materialization
-# ================================================================
-
 
 # make.unique() uses STRING_PTR_RO internally, triggering sora_string_Dataptr
 x <- sora(c("a", "a", "b"))
@@ -592,10 +553,7 @@ y2 <- map_shared(shared_name(x2))
 d <- duplicated(y2)
 test_identical(d, c(FALSE, FALSE, TRUE))
 
-# ================================================================
 # Unit tests: COW-materialized string serialization
-# ================================================================
-
 
 x <- sora(c("alpha", "beta", "gamma"))
 y <- map_shared(shared_name(x))
@@ -605,10 +563,7 @@ buf <- serialize(y2, NULL)
 z <- unserialize(buf)
 test_identical(z, c("delta", "beta", "gamma"))
 
-# ================================================================
 # Unit tests: shared_name on various types
-# ================================================================
-
 
 # shared_name on list/data frame
 df <- sora(data.frame(a = 1:3))
@@ -628,9 +583,7 @@ test_identical(shared_name(list(a = 1)), "")
 test_identical(shared_name("a"), "")
 test_identical(shared_name(nm), "")
 
-# ================================================================
 # Unit tests: map_shared on invalid input
-# ================================================================
 
 # Malformed input returns NULL silently (symmetric with shared_name -> "")
 test_null(map_shared(""))
@@ -649,10 +602,7 @@ test_null(map_shared(shared_name(1:10)))
 bogus <- if (.Platform$OS.type == "windows") "Local\\sora_nonexistent_xyz" else "/sora_nonexistent_xyz"
 test_error(map_shared(bogus), "not found")
 
-# ================================================================
 # Unit tests: is_shared on various types
-# ================================================================
-
 
 # Shared list
 df <- sora(data.frame(a = 1:3))
@@ -668,10 +618,7 @@ test_false(is_shared("hello"))
 test_false(is_shared(data.frame(a = 1)))
 test_false(is_shared(list(1, 2)))
 
-# ================================================================
 # Unit tests: Materialized vec Dataptr_or_null
-# ================================================================
-
 
 x <- sora(as.double(1:100))
 x[1] <- 999

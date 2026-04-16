@@ -1,7 +1,6 @@
 #include <R_ext/Rdynload.h>
 #include "sora.h"
 
-/* .Call entry point implementations (defined in altrep.c) */
 SEXP sora_create_call(SEXP);
 SEXP sora_shm_open_and_wrap_call(SEXP);
 SEXP sora_is_shared_call(SEXP);

@@ -5,6 +5,8 @@
 
 <!-- badges: start -->
 
+[![Lifecycle:
+experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![R-CMD-check](https://github.com/shikokuchuo/sora/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/shikokuchuo/sora/actions/workflows/R-CMD-check.yaml)
 [![Codecov test
 coverage](https://codecov.io/gh/shikokuchuo/sora/graph/badge.svg)](https://app.codecov.io/gh/shikokuchuo/sora)
@@ -52,7 +54,7 @@ library(sora)
 # Share a vector — returns an ALTREP-backed object
 x <- sora(rnorm(1e6))
 mean(x)
-#> [1] 0.001036124
+#> [1] -0.0003908872
 
 # Serialized form is ~100 bytes, not ~8 MB
 length(serialize(x, NULL))
@@ -71,7 +73,7 @@ x <- sora(1:1e6)
 # Extract the SHM name
 nm <- shared_name(x)
 nm
-#> [1] "/sora_55fb_1"
+#> [1] "/sora_9d7c_1"
 
 # Another process can map the same region by name
 y <- map_shared(nm)
@@ -97,7 +99,7 @@ x <- sora(rnorm(1e6))
 m <- mirai(list(mean = mean(x), size = lobstr::obj_size(x)), x = x)
 m[]
 #> $mean
-#> [1] 0.0002925582
+#> [1] -5.607519e-05
 #> 
 #> $size
 #> 792 B
@@ -110,35 +112,29 @@ travels as a reference to its position in the parent shared region, not
 as the full data:
 
 ``` r
-daemons(4)
+daemons(3)
 
-# Share a list — all 4 vectors in a single shared region
-x <- sora(list(a = rnorm(1e6), b = rnorm(1e6), c = rnorm(1e6), d = rnorm(1e6)))
+# Share a list — all 3 vectors in a single shared region
+x <- sora(list(a = rnorm(1e6), b = rnorm(1e6), c = rnorm(1e6)))
 
 # Each element is sent as (parent_name, index) — zero-copy on the worker
 mirai_map(x, \(v) list(mean = mean(v), size = lobstr::obj_size(v)))[.flat]
 #> $a.mean
-#> [1] 0.0002946361
+#> [1] -0.000414157
 #> 
 #> $a.size
 #> 728 B
 #> 
 #> $b.mean
-#> [1] 0.0001566972
+#> [1] -0.001099396
 #> 
 #> $b.size
 #> 728 B
 #> 
 #> $c.mean
-#> [1] 0.0006686742
+#> [1] -0.0008098337
 #> 
 #> $c.size
-#> 728 B
-#> 
-#> $d.mean
-#> [1] 0.0006331858
-#> 
-#> $d.size
 #> 728 B
 
 daemons(0)
@@ -152,12 +148,14 @@ deserialization — plus 8 separate copies consuming RAM.
 
 sora eliminates all of it. `sora()` writes data into shared memory once.
 Each worker maps the same physical pages, receiving a reference of ~300
-bytes instead of the full dataset — a 700,000x reduction:
+bytes instead of the full dataset — a payload ~700,000 times smaller,
+which translates into a significant saving in total runtime:
 
 ``` r
-n <- 5000000L
+daemons(8)
 
 set.seed(42)
+n <- 5000000L
 df <- data.frame(
   x1 = rnorm(n), x2 = rnorm(n), x3 = rnorm(n),
   x4 = runif(n), x5 = runif(n),
@@ -171,13 +169,7 @@ length(serialize(df, NULL))
 #> [1] 220000263
 length(serialize(shared_df, NULL))
 #> [1] 304
-```
 
-Memory savings this large translate directly into performance. Less
-serialization, less transfer, less allocation — each worker starts
-computing sooner and the system spends less time moving data:
-
-``` r
 boot_means <- function(seed, data) {
   set.seed(seed)
   idx <- sample.int(nrow(data), replace = TRUE)
@@ -185,31 +177,29 @@ boot_means <- function(seed, data) {
 }
 
 seeds <- seq_len(8L)
-daemons(8)
 
 # Without sora — each daemon deserializes a full copy
 system.time(mirai_map(seeds, boot_means, data = df)[])
 #>    user  system elapsed 
-#>   2.400  44.729   6.689
+#>   2.277  41.268   6.574
 
 # With sora — each daemon maps the same shared memory
 system.time(mirai_map(seeds, boot_means, data = shared_df)[])
 #>    user  system elapsed 
-#>   1.519  30.641   4.411
+#>   1.443  29.058   4.364
 
 daemons(0)
 ```
 
 ### How It Works
 
-All atomic vectors — including character vectors and those with
-attributes (factors, Dates, named vectors, etc.) — and data frame
-columns are written directly into shared memory. Pairlists are coerced
-to lists and handled the same way. `sora()` returns ALTREP wrappers that
-point into the shared pages — no deserialization, no per-process memory
-allocation. A data frame with 10 columns lives in a single shared
-region; a task that touches 3 columns pays for 3. Character strings are
-accessed lazily per element.
+#### What gets shared
+
+All atomic vector types and lists / data frames are written directly
+into shared memory, with attributes (`class`, `names`, `dim`, `levels`,
+`tzone`, …) preserved end-to-end. Pairlists are coerced to lists.
+`sora()` returns ALTREP wrappers that point into the shared pages — no
+deserialization, no per-process memory allocation.
 
 All other R objects (environments, closures, language objects) are
 returned unchanged by `sora()` — no shared memory region is created.
@@ -222,7 +212,13 @@ once into OS-backed shared memory, which is then memory-mapped by other
 processes using zero-copy ALTREP wrappers</figcaption>
 </figure>
 
-### Automatic Lifetime Management
+#### Lazy access
+
+A data frame with 10 columns lives in a single shared region; a task
+that touches 3 columns pays for 3. Character strings are accessed lazily
+per element.
+
+#### Lifetime
 
 Shared memory is managed by R’s garbage collector. The SHM region stays
 alive as long as the shared object (or any element extracted from it) is
@@ -234,7 +230,7 @@ shared memory is kept alive by the R object reference — if the result is
 used as a temporary (not assigned), the garbage collector may free the
 shared memory before a consumer process has mapped it.
 
-### Copy-on-Write
+#### Copy-on-write
 
 Shared data is mapped read-only. Mutations are always local — R’s
 copy-on-write mechanism ensures other processes continue reading the
@@ -246,6 +242,22 @@ original shared data:
 - **Modifying values** within a shared vector (e.g., `X[1] <- 0`)
   materializes just that vector into a private copy. Other vectors in
   the same shared region stay zero-copy.
+
+### Design Highlights
+
+- Transparent IPC. All atomic vector types (via ALTREAL, ALTINTEGER,
+  ALTLOGICAL, ALTRAW, ALTCOMPLEX, ALTSTRING) and lists / data frames
+  (via ALTLIST) work with `serialize()` and `mirai()` — no descriptor or
+  attach step.
+- Zero dependencies. Pure C against OS APIs (POSIX SHM, Win32 file
+  mappings) — no Rcpp, no Boost, no C++ on the build path.
+- Single SHM region per compound object. A 100-column data frame is one
+  `mmap`, not 100.
+- Read-only consumer mappings. `PROT_READ` is OS-enforced; a buggy
+  worker cannot corrupt the shared region.
+- GC-driven lifetime. Finalizers chain `munmap` + `unlink` through R’s
+  external pointer hierarchy, with session-exit cleanup — no stranded
+  regions, no descriptor files to manage.
 
 –
 
