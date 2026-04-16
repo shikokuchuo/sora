@@ -11,12 +11,14 @@ map_shared(name)
 region, as returned by \code{\link[=shared_name]{shared_name()}}.}
 }
 \value{
-The R object stored in the shared memory region.
+The R object stored in the shared memory region, or \code{NULL} if
+\code{name} is not a valid shared memory name (wrong type, length, \code{NA},
+or missing the \code{sora} prefix). If \code{name} is well-formed but the
+region is absent or corrupted, an error is raised.
 }
 \description{
-Open a shared memory region identified by a name string and return
-the R object. For Tier 2 objects, the result is ALTREP-backed,
-providing zero-copy access to the shared memory pages.
+Open a shared memory region identified by a name string and return an
+ALTREP-backed R object that reads directly from shared memory.
 }
 \examples{
 x <- sora(1:100)

@@ -10,7 +10,8 @@ shared_name(x)
 \item{x}{a shared object as returned by \code{\link[=sora]{sora()}} or \code{\link[=map_shared]{map_shared()}}.}
 }
 \value{
-A character string identifying the shared memory region.
+A character string identifying the shared memory region, or
+the empty string \code{""} if \code{x} is not a shared object.
 }
 \description{
 Extract the SHM region name from a shared object. This name can be

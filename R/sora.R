@@ -1,29 +1,24 @@
 #' Share an R Object via Shared Memory
 #'
-#' Write an R object into shared memory and return a shared version of the
-#' object. For Tier 2 objects, the result is ALTREP-backed, providing
-#' zero-copy access to the shared memory pages. For Tier 1 objects, the
-#' result is a plain R object.
+#' Write an R object into shared memory and return a version that other
+#' processes on the same machine can map without copying.
 #'
 #' @param x an R object.
 #'
-#' @return The shared object. For Tier 2 objects (atomic vectors,
-#'   character vectors, lists/data frames with atomic columns), an
-#'   ALTREP-backed object. For Tier 1 objects (environments, closures,
-#'   language objects), the object is returned unchanged.
+#' @return For atomic vectors (including character vectors and those with
+#'   attributes such as names, dim, class, or levels) and lists or data
+#'   frames whose elements are such vectors, an ALTREP-backed object that
+#'   reads directly from shared memory. For any other object (environments,
+#'   closures, language objects, \code{NULL}), the input is returned
+#'   unchanged with no shared memory region created.
 #'
 #' @details
-#' Two tiers are used depending on the object type:
-#' \itemize{
-#'   \item \strong{Tier 2 (zero-copy)}: Atomic vectors (including those
-#'     with attributes such as names, dim, class, or levels), character
-#'     vectors, and lists/data frames with atomic columns are backed by
-#'     ALTREP, providing direct access to shared memory pages. Character
-#'     strings are accessed lazily per element. ALTREP objects serialize
-#'     compactly as the SHM name (~30 bytes). Attributes are serialized
-#'     into the SHM region alongside the data.
-#'   \item \strong{Tier 1}: All other R objects are returned unchanged.
-#' }
+#' Attributes are stored alongside the data in the shared memory region
+#' and restored on the consumer side. Character vectors use a packed
+#' layout and elements are materialised lazily on access. When serialised
+#' (e.g. by \code{\link{serialize}} or across a \code{mirai} call), a
+#' shared object is represented compactly by its SHM name (~30 bytes)
+#' rather than by its contents.
 #'
 #' The shared memory region is managed automatically. It stays alive as
 #' long as the returned object (or any element extracted from it) is
@@ -48,14 +43,16 @@ sora <- function(x) .Call(sora_create, x)
 
 #' Open Shared Memory by Name
 #'
-#' Open a shared memory region identified by a name string and return
-#' the R object. For Tier 2 objects, the result is ALTREP-backed,
-#' providing zero-copy access to the shared memory pages.
+#' Open a shared memory region identified by a name string and return an
+#' ALTREP-backed R object that reads directly from shared memory.
 #'
 #' @param name a character string name identifying the shared memory
 #'   region, as returned by [shared_name()].
 #'
-#' @return The R object stored in the shared memory region.
+#' @return The R object stored in the shared memory region, or `NULL` if
+#'   `name` is not a valid shared memory name (wrong type, length, `NA`,
+#'   or missing the `sora` prefix). If `name` is well-formed but the
+#'   region is absent or corrupted, an error is raised.
 #'
 #' @examples
 #' x <- sora(1:100)
@@ -93,7 +90,8 @@ is_shared <- function(x) .Call(sora_is_shared, x)
 #'
 #' @param x a shared object as returned by [sora()] or [map_shared()].
 #'
-#' @return A character string identifying the shared memory region.
+#' @return A character string identifying the shared memory region, or
+#'   the empty string `""` if `x` is not a shared object.
 #'
 #' @examples
 #' x <- sora(rnorm(100))

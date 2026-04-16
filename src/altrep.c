@@ -834,14 +834,24 @@ static SEXP sora_open_string(sora_shm *shm_stack) {
   return result;
 }
 
-/* Open SHM by name, inspect magic, dispatch to appropriate wrapper */
+/* Open SHM by name, inspect magic, dispatch to appropriate wrapper.
+   Malformed input (wrong type/length, NA, or not a sora SHM name) returns
+   NULL silently. A well-formed name that fails to open or has unexpected
+   magic bytes errors with a specific message. */
 SEXP sora_shm_open_and_wrap_call(SEXP name) {
 
-  const char *nm = CHAR(STRING_ELT(name, 0));
+  if (TYPEOF(name) != STRSXP || XLENGTH(name) != 1)
+    return R_NilValue;
+  SEXP nm_sxp = STRING_ELT(name, 0);
+  if (nm_sxp == NA_STRING)
+    return R_NilValue;
+  const char *nm = CHAR(nm_sxp);
+  if (!sora_is_shm_name(nm))
+    return R_NilValue;
 
   sora_shm shm;
   if (sora_shm_open(&shm, nm) != 0)
-    Rf_error("sora: failed to open shared memory '%s'", nm);
+    Rf_error("sora: shared memory region not found: '%s'", nm);
 
   unsigned char *base = (unsigned char *) shm.addr;
   uint32_t magic;
@@ -856,13 +866,10 @@ SEXP sora_shm_open_and_wrap_call(SEXP name) {
   } else if (magic == 0x534F5253u) {
     /* SORS: ALTREP string vector */
     return sora_open_string(&shm);
-  } else {
-    /* Tier 1: unserialize from raw bytes */
-    SEXP result = PROTECT(sora_unserialize_from(base, shm.size));
-    sora_shm_close(&shm, 0);
-    UNPROTECT(1);
-    return result;
   }
+
+  sora_shm_close(&shm, 0);
+  Rf_error("sora: invalid or corrupted shared memory region: '%s'", nm);
 }
 
 /* Test whether an object is a shared ALTREP */
@@ -885,8 +892,6 @@ SEXP sora_is_shared_call(SEXP x) {
 
 /* Extract SHM name from ALTREP object or pass through name string */
 SEXP sora_shm_name_call(SEXP x) {
-  if (TYPEOF(x) == STRSXP && XLENGTH(x) == 1)
-    return x;
   if (ALTREP(x)) {
     SEXP d1 = R_altrep_data1(x);
     if (TYPEOF(d1) == EXTPTRSXP) {
@@ -901,7 +906,7 @@ SEXP sora_shm_name_call(SEXP x) {
       }
     }
   }
-  Rf_error("not a shared memory object");
+  return R_BlankScalarString;
 }
 
 /* ================================================================

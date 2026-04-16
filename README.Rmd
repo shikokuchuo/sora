@@ -173,19 +173,17 @@ daemons(0)
 
 ### How It Works
 
-sora operates in two tiers depending on the object:
+All atomic vectors — including character vectors and those with
+attributes (factors, Dates, named vectors, etc.) — and data frame
+columns are written directly into shared memory. Pairlists are coerced
+to lists and handled the same way. `sora()` returns ALTREP wrappers
+that point into the shared pages — no deserialization, no per-process
+memory allocation. A data frame with 10 columns lives in a single
+shared region; a task that touches 3 columns pays for 3. Character
+strings are accessed lazily per element.
 
-**Tier 2 — zero-copy (ALTREP).** All atomic vectors — including
-character vectors and those with attributes (factors, Dates, named
-vectors, etc.) — and data frame columns are written directly into
-shared memory. Pairlists are coerced to lists and handled the same way.
-`sora()` returns ALTREP wrappers that point into the shared pages — no
-deserialization, no per-process memory allocation. A data frame with 10
-columns lives in a single shared region; a task that touches 3 columns
-pays for 3. Character strings are accessed lazily per element.
-
-**Tier 1 — pass-through.** All other R objects (environments,
-closures, language objects) are returned unchanged by `sora()`.
+All other R objects (environments, closures, language objects) are
+returned unchanged by `sora()` — no shared memory region is created.
 
 ![Diagram showing sora() writing an object once into OS-backed shared memory, which is then memory-mapped by other processes using zero-copy ALTREP wrappers](man/figures/sora-diagram.svg)
 
@@ -213,3 +211,7 @@ original shared data:
 - **Modifying values** within a shared vector (e.g., `X[1] <- 0`)
   materializes just that vector into a private copy. Other vectors in the
   same shared region stay zero-copy.
+
+--
+
+Please note that the sora project is released with a [Contributor Code of Conduct](https://shikokuchuo.net/sora/CODE_OF_CONDUCT.html). By contributing to this project, you agree to abide by its terms.

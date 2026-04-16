@@ -52,7 +52,7 @@ library(sora)
 # Share a vector — returns an ALTREP-backed object
 x <- sora(rnorm(1e6))
 mean(x)
-#> [1] -0.000759208
+#> [1] -0.0009981362
 
 # Serialized form is ~100 bytes, not ~8 MB
 length(serialize(x, NULL))
@@ -71,7 +71,7 @@ x <- sora(1:1e6)
 # Extract the SHM name
 nm <- shared_name(x)
 nm
-#> [1] "/sora_96fb_1"
+#> [1] "/sora_4c6e_1"
 
 # Another process can map the same region by name
 y <- map_shared(nm)
@@ -97,7 +97,7 @@ x <- sora(rnorm(1e6))
 m <- mirai(list(mean = mean(x), size = lobstr::obj_size(x)), x = x)
 m[]
 #> $mean
-#> [1] -0.0006578232
+#> [1] 0.001275904
 #> 
 #> $size
 #> 792 B
@@ -118,25 +118,25 @@ x <- sora(list(a = rnorm(1e6), b = rnorm(1e6), c = rnorm(1e6), d = rnorm(1e6)))
 # Each element is sent as (parent_name, index) — zero-copy on the worker
 mirai_map(x, \(v) list(mean = mean(v), size = lobstr::obj_size(v)))[.flat]
 #> $a.mean
-#> [1] 0.0007743037
+#> [1] 5.630673e-06
 #> 
 #> $a.size
 #> 728 B
 #> 
 #> $b.mean
-#> [1] -0.0006084608
+#> [1] -0.0009973658
 #> 
 #> $b.size
 #> 728 B
 #> 
 #> $c.mean
-#> [1] 0.0005956364
+#> [1] -0.0001679982
 #> 
 #> $c.size
 #> 728 B
 #> 
 #> $d.mean
-#> [1] -0.000731392
+#> [1] -0.0001814566
 #> 
 #> $d.size
 #> 728 B
@@ -190,31 +190,29 @@ daemons(8)
 # Without sora — each daemon deserializes a full copy
 system.time(mirai_map(seeds, boot_means, data = df)[])
 #>    user  system elapsed 
-#>   2.344  43.516   6.684
+#>   2.381  45.335   6.613
 
 # With sora — each daemon maps the same shared memory
 system.time(mirai_map(seeds, boot_means, data = shared_df)[])
 #>    user  system elapsed 
-#>   1.468  29.664   4.348
+#>   1.544  31.148   4.469
 
 daemons(0)
 ```
 
 ### How It Works
 
-sora operates in two tiers depending on the object:
+All atomic vectors — including character vectors and those with
+attributes (factors, Dates, named vectors, etc.) — and data frame
+columns are written directly into shared memory. Pairlists are coerced
+to lists and handled the same way. `sora()` returns ALTREP wrappers that
+point into the shared pages — no deserialization, no per-process memory
+allocation. A data frame with 10 columns lives in a single shared
+region; a task that touches 3 columns pays for 3. Character strings are
+accessed lazily per element.
 
-**Tier 2 — zero-copy (ALTREP).** All atomic vectors — including
-character vectors and those with attributes (factors, Dates, named
-vectors, etc.) — and data frame columns are written directly into shared
-memory. Pairlists are coerced to lists and handled the same way.
-`sora()` returns ALTREP wrappers that point into the shared pages — no
-deserialization, no per-process memory allocation. A data frame with 10
-columns lives in a single shared region; a task that touches 3 columns
-pays for 3. Character strings are accessed lazily per element.
-
-**Tier 1 — pass-through.** All other R objects (environments, closures,
-language objects) are returned unchanged by `sora()`.
+All other R objects (environments, closures, language objects) are
+returned unchanged by `sora()` — no shared memory region is created.
 
 <figure>
 <img src="man/figures/sora-diagram.svg"
@@ -248,3 +246,9 @@ original shared data:
 - **Modifying values** within a shared vector (e.g., `X[1] <- 0`)
   materializes just that vector into a private copy. Other vectors in
   the same shared region stay zero-copy.
+
+–
+
+Please note that the sora project is released with a [Contributor Code
+of Conduct](https://shikokuchuo.net/sora/CODE_OF_CONDUCT.html). By
+contributing to this project, you agree to abide by its terms.
