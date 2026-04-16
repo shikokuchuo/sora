@@ -1,0 +1,17 @@
+# R package build artifacts
+*.tar.gz
+*.Rcheck/
+src/*.o
+src/*.so
+src/*.dll
+src/Makevars
+src/symbols.rds
+# IDE
+.Rproj.user/
+*.Rproj
+# pkgdown
+docs/
+# Claude Code
+.claude/
+# OS
+.DS_Store

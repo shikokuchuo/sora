@@ -1,0 +1,25 @@
+Package: sora
+Title: Shared Objects for R Applications
+Version: 0.0.1
+Authors@R: c(
+    person("Charlie", "Gao", , "charlie.gao@posit.co", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-0750-061X")),
+    person("Posit Software, PBC", role = c("cph", "fnd"),
+           comment = c(ROR = "03wc8by49"))
+  )
+Description: Shared memory for inter-process data sharing.  Implements
+    POSIX shared memory (Linux, macOS) and Win32 file mapping (Windows)
+    with R's ALTREP framework for lazy, memory-mapped data access.
+License: MIT + file LICENSE
+URL: https://shikokuchuo.github.io/sora/,
+    https://github.com/shikokuchuo/sora
+BugReports: https://github.com/shikokuchuo/sora/issues
+Depends:
+    R (>= 4.3.0)
+Suggests:
+    lobstr,
+    mirai
+Encoding: UTF-8
+NeedsCompilation: yes
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3

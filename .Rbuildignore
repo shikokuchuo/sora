@@ -1,0 +1,11 @@
+^\.Rproj\.user$
+^\.git$
+^\.gitignore$
+^\.claude$
+^README\.Rmd$
+^\.github$
+^CLAUDE\.md$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^LICENSE\.md$

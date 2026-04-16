@@ -1,0 +1,5 @@
+url: https://shikokuchuo.github.io/sora/
+template:
+  bootstrap: 5
+development:
+  mode: auto
