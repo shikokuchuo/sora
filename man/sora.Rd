@@ -2,7 +2,7 @@
 % Please edit documentation in R/sora.R
 \name{sora}
 \alias{sora}
-\title{Share an R Object via Shared Memory}
+\title{Create a Shared Object}
 \usage{
 sora(x)
 }

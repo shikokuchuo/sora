@@ -722,7 +722,7 @@ static SEXP sora_shm_create_string_call(SEXP x) {
 }
 
 /* Unified entry point: dispatch by type */
-SEXP sora_create_call(SEXP x) {
+SEXP sora_create(SEXP x) {
   int type = TYPEOF(x);
   if (type == VECSXP || type == LISTSXP)
     return sora_shm_create_list_call(x);
@@ -838,7 +838,7 @@ static SEXP sora_open_string(sora_shm *shm_stack) {
    Malformed input (wrong type/length, NA, or not a sora SHM name) returns
    NULL silently. A well-formed name that fails to open or has unexpected
    magic bytes errors with a specific message. */
-SEXP sora_shm_open_and_wrap_call(SEXP name) {
+SEXP sora_shm_open_and_wrap(SEXP name) {
 
   if (TYPEOF(name) != STRSXP || XLENGTH(name) != 1)
     return R_NilValue;
@@ -873,7 +873,7 @@ SEXP sora_shm_open_and_wrap_call(SEXP name) {
 }
 
 /* Test whether an object is a shared ALTREP */
-SEXP sora_is_shared_call(SEXP x) {
+SEXP sora_is_shared(SEXP x) {
   if (ALTREP(x)) {
     SEXP d1 = R_altrep_data1(x);
     if (TYPEOF(d1) == EXTPTRSXP) {
@@ -891,7 +891,7 @@ SEXP sora_is_shared_call(SEXP x) {
 }
 
 /* Extract SHM name from ALTREP object or pass through name string */
-SEXP sora_shm_name_call(SEXP x) {
+SEXP sora_shm_name(SEXP x) {
   if (ALTREP(x)) {
     SEXP d1 = R_altrep_data1(x);
     if (TYPEOF(d1) == EXTPTRSXP) {
@@ -1049,7 +1049,7 @@ static SEXP sora_Unserialize(SEXP class_info, SEXP state) {
   /* Compact state: SHM name string → open and wrap */
   if (TYPEOF(state) == STRSXP && XLENGTH(state) == 1 &&
       sora_is_shm_name(CHAR(STRING_ELT(state, 0))))
-    return sora_shm_open_and_wrap_call(state);
+    return sora_shm_open_and_wrap(state);
   /* Element reference: list(name, index) → open parent, extract element */
   if (TYPEOF(state) == VECSXP && XLENGTH(state) == 2 &&
       TYPEOF(VECTOR_ELT(state, 0)) == STRSXP &&

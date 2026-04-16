@@ -245,19 +245,31 @@ original shared data:
 
 ### Design Highlights
 
-- Transparent IPC. All atomic vector types (via ALTREAL, ALTINTEGER,
-  ALTLOGICAL, ALTRAW, ALTCOMPLEX, ALTSTRING) and lists / data frames
-  (via ALTLIST) work with `serialize()` and `mirai()` — no descriptor or
-  attach step.
-- Zero dependencies. Pure C against OS APIs (POSIX SHM, Win32 file
-  mappings) — no Rcpp, no Boost, no C++ on the build path.
-- Single SHM region per compound object. A 100-column data frame is one
-  `mmap`, not 100.
-- Read-only consumer mappings. `PROT_READ` is OS-enforced; a buggy
-  worker cannot corrupt the shared region.
-- GC-driven lifetime. Finalizers chain `munmap` + `unlink` through R’s
-  external pointer hierarchy, with session-exit cleanup — no stranded
-  regions, no descriptor files to manage.
+#### Transparent IPC
+
+All atomic vector types (via ALTREAL, ALTINTEGER, ALTLOGICAL, ALTRAW,
+ALTCOMPLEX, ALTSTRING) and lists / data frames (via ALTLIST) work with
+`serialize()` and `mirai()` — no descriptor or attach step.
+
+#### Zero dependencies
+
+Pure C against OS APIs (POSIX SHM, Win32 file mappings) — no Rcpp, no
+Boost, no C++ on the build path.
+
+#### Single SHM region per compound object
+
+A 100-column data frame is one `mmap`, not 100.
+
+#### Read-only consumer mappings
+
+`PROT_READ` is OS-enforced; a buggy worker cannot corrupt the shared
+region.
+
+#### GC-driven lifetime
+
+Finalizers chain `munmap` + `unlink` through R’s external pointer
+hierarchy, with session-exit cleanup — no stranded regions, no
+descriptor files to manage.
 
 –
 

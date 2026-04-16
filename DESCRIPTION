@@ -10,7 +10,7 @@ Authors@R: c(
 Description: Share R objects across processes on the same machine without
     copying. Uses 'POSIX' shared memory on Linux and macOS, and 'Win32'
     file mappings on Windows, so that multiple R processes can read the
-    same physical memory pages. Integrates with R's 'ALTREP' framework for
+    same physical memory pages. Integrates with the R 'ALTREP' framework for
     lazy, zero-copy access, with shared objects serialized compactly by
     their shared memory name rather than their full contents.
 License: MIT + file LICENSE

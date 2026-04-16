@@ -1,4 +1,4 @@
-#' Share an R Object via Shared Memory
+#' Create a Shared Object
 #'
 #' Write an R object into shared memory and return a version that other
 #' processes on the same machine can map without copying.
