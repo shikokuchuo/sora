@@ -17,6 +17,7 @@ knitr::opts_chunk$set(
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/shikokuchuo/sora/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/shikokuchuo/sora/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/shikokuchuo/sora/graph/badge.svg)](https://app.codecov.io/gh/shikokuchuo/sora)
 <!-- badges: end -->
 
       ________

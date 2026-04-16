@@ -9,3 +9,4 @@
 ^docs$
 ^pkgdown$
 ^LICENSE\.md$
+^codecov\.yml$
