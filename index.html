@@ -90,7 +90,7 @@
 <span><span class="co"># Share a vector — returns an ALTREP-backed object</span></span>
 <span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/sora.html">sora</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">1e6</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] -0.0005047727</span></span>
+<span><span class="co">#&gt; [1] -0.000759208</span></span>
 <span></span>
 <span><span class="co"># Serialized form is ~100 bytes, not ~8 MB</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/serialize.html" class="external-link">serialize</a></span><span class="op">(</span><span class="va">x</span>, <span class="cn">NULL</span><span class="op">)</span><span class="op">)</span></span>
@@ -106,7 +106,7 @@
 <span><span class="co"># Extract the SHM name</span></span>
 <span><span class="va">nm</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/shared_name.html">shared_name</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span><span class="va">nm</span></span>
-<span><span class="co">#&gt; [1] "/sora_30d0_1"</span></span>
+<span><span class="co">#&gt; [1] "/sora_96fb_1"</span></span>
 <span></span>
 <span><span class="co"># Another process can map the same region by name</span></span>
 <span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/map_shared.html">map_shared</a></span><span class="op">(</span><span class="va">nm</span><span class="op">)</span></span>
@@ -129,7 +129,7 @@
 <span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://mirai.r-lib.org/reference/mirai.html" class="external-link">mirai</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>, size <span class="op">=</span> <span class="fu">lobstr</span><span class="fu">::</span><span class="fu"><a href="https://lobstr.r-lib.org/reference/obj_size.html" class="external-link">obj_size</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span><span class="op">)</span>, x <span class="op">=</span> <span class="va">x</span><span class="op">)</span></span>
 <span><span class="va">m</span><span class="op">[</span><span class="op">]</span></span>
 <span><span class="co">#&gt; $mean</span></span>
-<span><span class="co">#&gt; [1] 0.0004454518</span></span>
+<span><span class="co">#&gt; [1] -0.0006578232</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $size</span></span>
 <span><span class="co">#&gt; 792 B</span></span>
@@ -145,25 +145,25 @@
 <span><span class="co"># Each element is sent as (parent_name, index) — zero-copy on the worker</span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/mirai_map.html" class="external-link">mirai_map</a></span><span class="op">(</span><span class="va">x</span>, \<span class="op">(</span><span class="va">v</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">v</span><span class="op">)</span>, size <span class="op">=</span> <span class="fu">lobstr</span><span class="fu">::</span><span class="fu"><a href="https://lobstr.r-lib.org/reference/obj_size.html" class="external-link">obj_size</a></span><span class="op">(</span><span class="va">v</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="va">.flat</span><span class="op">]</span></span>
 <span><span class="co">#&gt; $a.mean</span></span>
-<span><span class="co">#&gt; [1] 0.001400665</span></span>
+<span><span class="co">#&gt; [1] 0.0007743037</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $a.size</span></span>
 <span><span class="co">#&gt; 728 B</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $b.mean</span></span>
-<span><span class="co">#&gt; [1] -0.001319182</span></span>
+<span><span class="co">#&gt; [1] -0.0006084608</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $b.size</span></span>
 <span><span class="co">#&gt; 728 B</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $c.mean</span></span>
-<span><span class="co">#&gt; [1] 0.0009822724</span></span>
+<span><span class="co">#&gt; [1] 0.0005956364</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $c.size</span></span>
 <span><span class="co">#&gt; 728 B</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $d.mean</span></span>
-<span><span class="co">#&gt; [1] 0.001537217</span></span>
+<span><span class="co">#&gt; [1] -0.000731392</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $d.size</span></span>
 <span><span class="co">#&gt; 728 B</span></span>
@@ -206,12 +206,12 @@
 <span><span class="co"># Without sora — each daemon deserializes a full copy</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="https://mirai.r-lib.org/reference/mirai_map.html" class="external-link">mirai_map</a></span><span class="op">(</span><span class="va">seeds</span>, <span class="va">boot_means</span>, data <span class="op">=</span> <span class="va">df</span><span class="op">)</span><span class="op">[</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    user  system elapsed </span></span>
-<span><span class="co">#&gt;   2.245  34.484   6.831</span></span>
+<span><span class="co">#&gt;   2.344  43.516   6.684</span></span>
 <span></span>
 <span><span class="co"># With sora — each daemon maps the same shared memory</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="https://mirai.r-lib.org/reference/mirai_map.html" class="external-link">mirai_map</a></span><span class="op">(</span><span class="va">seeds</span>, <span class="va">boot_means</span>, data <span class="op">=</span> <span class="va">shared_df</span><span class="op">)</span><span class="op">[</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    user  system elapsed </span></span>
-<span><span class="co">#&gt;   1.527  29.396   4.429</span></span>
+<span><span class="co">#&gt;   1.468  29.664   4.348</span></span>
 <span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/daemons.html" class="external-link">daemons</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span></code></pre></div>
 </div>
