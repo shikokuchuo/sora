@@ -29,9 +29,10 @@ with no shared memory region created.
 Attributes are stored alongside the data in the shared memory region and
 restored on the consumer side. Character vectors use a packed layout and
 elements are materialised lazily on access. When serialised (e.g. by
-[`serialize`](https://rdrr.io/r/base/serialize.html) or across a `mirai`
-call), a shared object is represented compactly by its SHM name (~30
-bytes) rather than by its contents.
+[`serialize()`](https://rdrr.io/r/base/serialize.html) or across a
+[`mirai()`](https://mirai.r-lib.org/reference/mirai.html) call), a
+shared object is represented compactly by its SHM name (~30 bytes)
+rather than by its contents.
 
 The shared memory region is managed automatically. It stays alive as
 long as the returned object (or any element extracted from it) is

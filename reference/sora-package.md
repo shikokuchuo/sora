@@ -12,7 +12,7 @@ memory is automatically freed when the R object is garbage collected.
 
 Useful links:
 
-- <https://shikokuchuo.github.io/sora/>
+- <https://shikokuchuo.net/sora/>
 
 - <https://github.com/shikokuchuo/sora>
 

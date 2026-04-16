@@ -14,12 +14,12 @@ Source:
 [`DESCRIPTION`](https://github.com/shikokuchuo/sora/blob/main/DESCRIPTION)
 
 Gao C (2026). *sora: Shared Objects for R Applications*. R package
-version 0.0.1.9000, <https://shikokuchuo.github.io/sora/>.
+version 0.0.1.9000, <https://shikokuchuo.net/sora/>.
 
     @Manual{,
       title = {sora: Shared Objects for R Applications},
       author = {Charlie Gao},
       year = {2026},
       note = {R package version 0.0.1.9000},
-      url = {https://shikokuchuo.github.io/sora/},
+      url = {https://shikokuchuo.net/sora/},
     }
