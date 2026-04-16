@@ -1,39 +1,40 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -8 400 200" font-family="system-ui, -apple-system, sans-serif" font-size="13">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 310" font-family="system-ui, -apple-system, sans-serif" font-size="14">
   <!-- Shared Memory box -->
-  <rect x="115" y="8" width="170" height="48" rx="8" fill="#e8f0fe" stroke="#4a7cbf" stroke-width="1.5"/>
-  <text x="200" y="30" text-anchor="middle" font-weight="600" fill="#1a3a5c">Shared Memory</text>
-  <text x="200" y="46" text-anchor="middle" fill="#4a7cbf" font-size="11">(OS-backed)</text>
+  <rect x="250" y="20" width="220" height="60" rx="10" fill="#e8f0fe" stroke="#4a7cbf" stroke-width="1.5"/>
+  <text x="360" y="46" text-anchor="middle" font-weight="600" fill="#1a3a5c">Shared Memory</text>
+  <text x="360" y="66" text-anchor="middle" fill="#4a7cbf" font-size="12">(OS-backed)</text>
 
   <!-- create() label and arrow -->
-  <text x="52" y="32" text-anchor="middle" font-size="12" fill="#1a3a5c" font-weight="600">sora(obj)</text>
-  <text x="52" y="47" text-anchor="middle" font-size="10" fill="#888">write once</text>
-  <line x1="95" y1="32" x2="110" y2="32" stroke="#4a7cbf" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="140" y="44" text-anchor="middle" font-size="11" fill="#888">sora(obj)</text>
+  <text x="140" y="62" text-anchor="middle" font-size="11" fill="#888">write once</text>
+  <line x1="200" y1="48" x2="244" y2="48" stroke="#4a7cbf" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-  <!-- mmap arrows from SHM to processes -->
-  <line x1="155" y1="56" x2="56" y2="122" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
-  <line x1="180" y1="56" x2="152" y2="122" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
-  <line x1="220" y1="56" x2="248" y2="122" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
-  <line x1="245" y1="56" x2="344" y2="122" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <!-- mmap connector: trunk, crossbar, and 4 prongs -->
+  <line x1="360" y1="80" x2="360" y2="140" stroke="#4a7cbf" stroke-width="1.2"/>
+  <line x1="100" y1="140" x2="620" y2="140" stroke="#4a7cbf" stroke-width="1.2"/>
+  <line x1="100" y1="140" x2="100" y2="198" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="273" y1="140" x2="273" y2="198" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="447" y1="140" x2="447" y2="198" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="620" y1="140" x2="620" y2="198" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
 
-  <!-- mmap labels -->
-  <text x="105" y="90" text-anchor="middle" fill="#888" font-size="10">mmap</text>
-  <text x="295" y="90" text-anchor="middle" fill="#888" font-size="10">mmap</text>
+  <!-- mmap label -->
+  <text x="384" y="130" text-anchor="start" fill="#888" font-size="11">mmap</text>
 
   <!-- Process boxes -->
-  <rect x="16" y="126" width="80" height="26" rx="6" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
-  <text x="56" y="143" text-anchor="middle" fill="#3a5c1a" font-size="12">Process 1</text>
+  <rect x="40" y="202" width="120" height="34" rx="8" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
+  <text x="100" y="224" text-anchor="middle" fill="#3a5c1a" font-size="13">Process 1</text>
 
-  <rect x="112" y="126" width="80" height="26" rx="6" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
-  <text x="152" y="143" text-anchor="middle" fill="#3a5c1a" font-size="12">Process 2</text>
+  <rect x="213" y="202" width="120" height="34" rx="8" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
+  <text x="273" y="224" text-anchor="middle" fill="#3a5c1a" font-size="13">Process 2</text>
 
-  <rect x="208" y="126" width="80" height="26" rx="6" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
-  <text x="248" y="143" text-anchor="middle" fill="#3a5c1a" font-size="12">Process 3</text>
+  <rect x="387" y="202" width="120" height="34" rx="8" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
+  <text x="447" y="224" text-anchor="middle" fill="#3a5c1a" font-size="13">Process 3</text>
 
-  <rect x="304" y="126" width="80" height="26" rx="6" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
-  <text x="344" y="143" text-anchor="middle" fill="#3a5c1a" font-size="12">Process 4</text>
+  <rect x="560" y="202" width="120" height="34" rx="8" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
+  <text x="620" y="224" text-anchor="middle" fill="#3a5c1a" font-size="13">Process 4</text>
 
   <!-- Subtitle -->
-  <text x="200" y="174" text-anchor="middle" fill="#888" font-size="11" font-style="italic">ALTREP wrappers — zero-copy reads</text>
+  <text x="360" y="270" text-anchor="middle" fill="#888" font-size="12" font-style="italic">ALTREP wrappers — zero-copy reads</text>
 
   <!-- Arrow marker -->
   <defs>
