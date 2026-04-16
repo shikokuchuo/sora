@@ -45,7 +45,7 @@ library(sora)
 # Share a vector — returns an ALTREP-backed object
 x <- sora(rnorm(1e6))
 mean(x)
-#> [1] -0.0009597292
+#> [1] -0.0005047727
 
 # Serialized form is ~100 bytes, not ~8 MB
 length(serialize(x, NULL))
@@ -66,7 +66,7 @@ x <- sora(1:1e6)
 # Extract the SHM name
 nm <- shared_name(x)
 nm
-#> [1] "/sora_b589_1"
+#> [1] "/sora_30d0_1"
 
 # Another process can map the same region by name
 y <- map_shared(nm)
@@ -92,7 +92,7 @@ x <- sora(rnorm(1e6))
 m <- mirai(list(mean = mean(x), size = lobstr::obj_size(x)), x = x)
 m[]
 #> $mean
-#> [1] 0.001674302
+#> [1] 0.0004454518
 #> 
 #> $size
 #> 792 B
@@ -113,25 +113,25 @@ x <- sora(list(a = rnorm(1e6), b = rnorm(1e6), c = rnorm(1e6), d = rnorm(1e6)))
 # Each element is sent as (parent_name, index) — zero-copy on the worker
 mirai_map(x, \(v) list(mean = mean(v), size = lobstr::obj_size(v)))[.flat]
 #> $a.mean
-#> [1] 0.0003616497
+#> [1] 0.001400665
 #> 
 #> $a.size
 #> 728 B
 #> 
 #> $b.mean
-#> [1] 0.001056395
+#> [1] -0.001319182
 #> 
 #> $b.size
 #> 728 B
 #> 
 #> $c.mean
-#> [1] -0.0011767
+#> [1] 0.0009822724
 #> 
 #> $c.size
 #> 728 B
 #> 
 #> $d.mean
-#> [1] 0.001649881
+#> [1] 0.001537217
 #> 
 #> $d.size
 #> 728 B
@@ -187,12 +187,12 @@ daemons(8)
 # Without sora — each daemon deserializes a full copy
 system.time(mirai_map(seeds, boot_means, data = df)[])
 #>    user  system elapsed 
-#>   2.362  44.225   6.610
+#>   2.245  34.484   6.831
 
 # With sora — each daemon maps the same shared memory
 system.time(mirai_map(seeds, boot_means, data = shared_df)[])
 #>    user  system elapsed 
-#>   1.501  29.514   4.409
+#>   1.527  29.396   4.429
 
 daemons(0)
 ```
