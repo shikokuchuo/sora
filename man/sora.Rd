@@ -25,7 +25,7 @@ processes on the same machine can map without copying.
 Attributes are stored alongside the data in the shared memory region
 and restored on the consumer side. Character vectors use a packed
 layout and elements are materialised lazily on access. When serialised
-(e.g. by \code{\link{serialize}} or across a \code{mirai} call), a
+(e.g. by \code{\link[=serialize]{serialize()}} or across a \code{mirai()} call), a
 shared object is represented compactly by its SHM name (~30 bytes)
 rather than by its contents.
 

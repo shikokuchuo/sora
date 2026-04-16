@@ -44,7 +44,7 @@ Shared Objects for R Applications
 ### Installation
 
 ``` r
-install.packages("sora", repos = "https://shikokuchuo.r-universe.dev")
+install.packages("sora")
 ```
 
 ### Quick Start

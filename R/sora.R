@@ -9,14 +9,14 @@
 #'   attributes such as names, dim, class, or levels) and lists or data
 #'   frames whose elements are such vectors, an ALTREP-backed object that
 #'   reads directly from shared memory. For any other object (environments,
-#'   closures, language objects, \code{NULL}), the input is returned
+#'   closures, language objects, `NULL`), the input is returned
 #'   unchanged with no shared memory region created.
 #'
 #' @details
 #' Attributes are stored alongside the data in the shared memory region
 #' and restored on the consumer side. Character vectors use a packed
 #' layout and elements are materialised lazily on access. When serialised
-#' (e.g. by \code{\link{serialize}} or across a \code{mirai} call), a
+#' (e.g. by [serialize()] or across a `mirai()` call), a
 #' shared object is represented compactly by its SHM name (~30 bytes)
 #' rather than by its contents.
 #'
@@ -25,7 +25,7 @@
 #' referenced in R, and is freed by the garbage collector when no
 #' references remain.
 #'
-#' \strong{Important}: always assign the result of \code{sora()} to a
+#' **Important**: always assign the result of `sora()` to a
 #' variable. The shared memory is kept alive by the R object reference —
 #' if the result is used as a temporary (not assigned), the garbage
 #' collector may free the shared memory before a consumer process has

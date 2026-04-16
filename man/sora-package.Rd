@@ -14,7 +14,7 @@ when the R object is garbage collected.
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://shikokuchuo.github.io/sora/}
+  \item \url{https://shikokuchuo.net/sora/}
   \item \url{https://github.com/shikokuchuo/sora}
   \item Report bugs at \url{https://github.com/shikokuchuo/sora/issues}
 }
