@@ -13,8 +13,8 @@
 <link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Shared Objects for R Applications">
-<meta name="description" content="Share R objects across processes on the same machine without copying. Uses POSIX shared memory on Linux and macOS, and Win32 file mappings on Windows, so that multiple R processes can read the same physical memory pages. Integrates with Rs ALTREP' framework for lazy, zero-copy access, with shared objects serialized compactly by their shared memory name rather than their full contents.">
-<meta property="og:description" content="Share R objects across processes on the same machine without copying. Uses POSIX shared memory on Linux and macOS, and Win32 file mappings on Windows, so that multiple R processes can read the same physical memory pages. Integrates with Rs ALTREP' framework for lazy, zero-copy access, with shared objects serialized compactly by their shared memory name rather than their full contents.">
+<meta name="description" content="Share R objects across processes on the same machine without copying. Uses POSIX shared memory on Linux and macOS, and Win32 file mappings on Windows, so that multiple R processes can read the same physical memory pages. Integrates with the R ALTREP framework for lazy, zero-copy access, with shared objects serialized compactly by their shared memory name rather than their full contents.">
+<meta property="og:description" content="Share R objects across processes on the same machine without copying. Uses POSIX shared memory on Linux and macOS, and Win32 file mappings on Windows, so that multiple R processes can read the same physical memory pages. Integrates with the R ALTREP framework for lazy, zero-copy access, with shared objects serialized compactly by their shared memory name rather than their full contents.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -85,7 +85,7 @@
 </h3>
 <p><code><a href="reference/sora.html">sora()</a></code> writes an R object into shared memory and returns a shared version backed by zero-copy ALTREP. Shared objects serialize compactly via ALTREP serialization hooks, working transparently with mirai and any R serialization path. Shared memory is automatically freed when the object is garbage collected.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://shikokuchuo.net/sora/" class="external-link">sora</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://shikokuchuo.net/sora/">sora</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Share a vector — returns an ALTREP-backed object</span></span>
 <span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/sora.html">sora</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">1e6</span><span class="op">)</span><span class="op">)</span></span>
@@ -246,15 +246,33 @@ Diagram showing sora() writing an object once into OS-backed shared memory, whic
 <div class="section level3">
 <h3 id="design-highlights">Design Highlights<a class="anchor" aria-label="anchor" href="#design-highlights"></a>
 </h3>
-<ul>
-<li>Transparent IPC. All atomic vector types (via ALTREAL, ALTINTEGER, ALTLOGICAL, ALTRAW, ALTCOMPLEX, ALTSTRING) and lists / data frames (via ALTLIST) work with <code><a href="https://rdrr.io/r/base/serialize.html" class="external-link">serialize()</a></code> and <code><a href="https://mirai.r-lib.org/reference/mirai.html" class="external-link">mirai()</a></code> — no descriptor or attach step.</li>
-<li>Zero dependencies. Pure C against OS APIs (POSIX SHM, Win32 file mappings) — no Rcpp, no Boost, no C++ on the build path.</li>
-<li>Single SHM region per compound object. A 100-column data frame is one <code>mmap</code>, not 100.</li>
-<li>Read-only consumer mappings. <code>PROT_READ</code> is OS-enforced; a buggy worker cannot corrupt the shared region.</li>
-<li>GC-driven lifetime. Finalizers chain <code>munmap</code> + <code>unlink</code> through R’s external pointer hierarchy, with session-exit cleanup — no stranded regions, no descriptor files to manage.</li>
-</ul>
+<div class="section level4">
+<h4 id="transparent-ipc">Transparent IPC<a class="anchor" aria-label="anchor" href="#transparent-ipc"></a>
+</h4>
+<p>All atomic vector types (via ALTREAL, ALTINTEGER, ALTLOGICAL, ALTRAW, ALTCOMPLEX, ALTSTRING) and lists / data frames (via ALTLIST) work with <code><a href="https://rdrr.io/r/base/serialize.html" class="external-link">serialize()</a></code> and <code><a href="https://mirai.r-lib.org/reference/mirai.html" class="external-link">mirai()</a></code> — no descriptor or attach step.</p>
+</div>
+<div class="section level4">
+<h4 id="zero-dependencies">Zero dependencies<a class="anchor" aria-label="anchor" href="#zero-dependencies"></a>
+</h4>
+<p>Pure C against OS APIs (POSIX SHM, Win32 file mappings) — no Rcpp, no Boost, no C++ on the build path.</p>
+</div>
+<div class="section level4">
+<h4 id="single-shm-region-per-compound-object">Single SHM region per compound object<a class="anchor" aria-label="anchor" href="#single-shm-region-per-compound-object"></a>
+</h4>
+<p>A 100-column data frame is one <code>mmap</code>, not 100.</p>
+</div>
+<div class="section level4">
+<h4 id="read-only-consumer-mappings">Read-only consumer mappings<a class="anchor" aria-label="anchor" href="#read-only-consumer-mappings"></a>
+</h4>
+<p><code>PROT_READ</code> is OS-enforced; a buggy worker cannot corrupt the shared region.</p>
+</div>
+<div class="section level4">
+<h4 id="gc-driven-lifetime">GC-driven lifetime<a class="anchor" aria-label="anchor" href="#gc-driven-lifetime"></a>
+</h4>
+<p>Finalizers chain <code>munmap</code> + <code>unlink</code> through R’s external pointer hierarchy, with session-exit cleanup — no stranded regions, no descriptor files to manage.</p>
 <p>–</p>
-<p>Please note that the sora project is released with a <a href="https://shikokuchuo.net/sora/CODE_OF_CONDUCT.html" class="external-link">Contributor Code of Conduct</a>. By contributing to this project, you agree to abide by its terms.</p>
+<p>Please note that the sora project is released with a <a href="https://shikokuchuo.net/sora/CODE_OF_CONDUCT.html">Contributor Code of Conduct</a>. By contributing to this project, you agree to abide by its terms.</p>
+</div>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">

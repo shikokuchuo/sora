@@ -10,8 +10,8 @@
 
 Shared Objects for R Applications
 
-→ [`sora()`](https://shikokuchuo.github.io/sora/reference/sora.md)
-writes an R object into shared memory and returns a shared version
+→ [`sora()`](https://shikokuchuo.net/sora/reference/sora.md) writes an R
+object into shared memory and returns a shared version
 
 → ALTREP serialization hooks — shared objects serialize compactly
 
@@ -32,8 +32,8 @@ install.packages("sora")
 
 ### Quick Start
 
-[`sora()`](https://shikokuchuo.github.io/sora/reference/sora.md) writes
-an R object into shared memory and returns a shared version backed by
+[`sora()`](https://shikokuchuo.net/sora/reference/sora.md) writes an R
+object into shared memory and returns a shared version backed by
 zero-copy ALTREP. Shared objects serialize compactly via ALTREP
 serialization hooks, working transparently with mirai and any R
 serialization path. Shared memory is automatically freed when the object
@@ -54,9 +54,9 @@ length(serialize(x, NULL))
 
 ### Sharing by Name
 
-[`shared_name()`](https://shikokuchuo.github.io/sora/reference/shared_name.md)
+[`shared_name()`](https://shikokuchuo.net/sora/reference/shared_name.md)
 extracts the SHM name from a shared object.
-[`map_shared()`](https://shikokuchuo.github.io/sora/reference/map_shared.md)
+[`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md)
 opens a shared region by name — useful for accessing the same data from
 another process without serialization:
 
@@ -140,8 +140,8 @@ Parallel computing multiplies memory. When 8 workers each need the same
 deserialization — plus 8 separate copies consuming RAM.
 
 sora eliminates all of it.
-[`sora()`](https://shikokuchuo.github.io/sora/reference/sora.md) writes
-data into shared memory once. Each worker maps the same physical pages,
+[`sora()`](https://shikokuchuo.net/sora/reference/sora.md) writes data
+into shared memory once. Each worker maps the same physical pages,
 receiving a reference of ~300 bytes instead of the full dataset — a
 payload ~700,000 times smaller, which translates into a significant
 saving in total runtime:
@@ -193,14 +193,14 @@ daemons(0)
 All atomic vector types and lists / data frames are written directly
 into shared memory, with attributes (`class`, `names`, `dim`, `levels`,
 `tzone`, …) preserved end-to-end. Pairlists are coerced to lists.
-[`sora()`](https://shikokuchuo.github.io/sora/reference/sora.md) returns
+[`sora()`](https://shikokuchuo.net/sora/reference/sora.md) returns
 ALTREP wrappers that point into the shared pages — no deserialization,
 no per-process memory allocation.
 
 All other R objects (environments, closures, language objects) are
 returned unchanged by
-[`sora()`](https://shikokuchuo.github.io/sora/reference/sora.md) — no
-shared memory region is created.
+[`sora()`](https://shikokuchuo.net/sora/reference/sora.md) — no shared
+memory region is created.
 
 ![Diagram showing sora() writing an object once into OS-backed shared
 memory, which is then memory-mapped by other processes using zero-copy
@@ -224,7 +224,7 @@ referenced in R. When no references remain, the garbage collector frees
 the shared memory automatically.
 
 **Important:** Always assign the result of
-[`sora()`](https://shikokuchuo.github.io/sora/reference/sora.md) to a
+[`sora()`](https://shikokuchuo.net/sora/reference/sora.md) to a
 variable. The shared memory is kept alive by the R object reference — if
 the result is used as a temporary (not assigned), the garbage collector
 may free the shared memory before a consumer process has mapped it.
@@ -244,21 +244,33 @@ original shared data:
 
 ### Design Highlights
 
-- Transparent IPC. All atomic vector types (via ALTREAL, ALTINTEGER,
-  ALTLOGICAL, ALTRAW, ALTCOMPLEX, ALTSTRING) and lists / data frames
-  (via ALTLIST) work with
-  [`serialize()`](https://rdrr.io/r/base/serialize.html) and
-  [`mirai()`](https://mirai.r-lib.org/reference/mirai.html) — no
-  descriptor or attach step.
-- Zero dependencies. Pure C against OS APIs (POSIX SHM, Win32 file
-  mappings) — no Rcpp, no Boost, no C++ on the build path.
-- Single SHM region per compound object. A 100-column data frame is one
-  `mmap`, not 100.
-- Read-only consumer mappings. `PROT_READ` is OS-enforced; a buggy
-  worker cannot corrupt the shared region.
-- GC-driven lifetime. Finalizers chain `munmap` + `unlink` through R’s
-  external pointer hierarchy, with session-exit cleanup — no stranded
-  regions, no descriptor files to manage.
+#### Transparent IPC
+
+All atomic vector types (via ALTREAL, ALTINTEGER, ALTLOGICAL, ALTRAW,
+ALTCOMPLEX, ALTSTRING) and lists / data frames (via ALTLIST) work with
+[`serialize()`](https://rdrr.io/r/base/serialize.html) and
+[`mirai()`](https://mirai.r-lib.org/reference/mirai.html) — no
+descriptor or attach step.
+
+#### Zero dependencies
+
+Pure C against OS APIs (POSIX SHM, Win32 file mappings) — no Rcpp, no
+Boost, no C++ on the build path.
+
+#### Single SHM region per compound object
+
+A 100-column data frame is one `mmap`, not 100.
+
+#### Read-only consumer mappings
+
+`PROT_READ` is OS-enforced; a buggy worker cannot corrupt the shared
+region.
+
+#### GC-driven lifetime
+
+Finalizers chain `munmap` + `unlink` through R’s external pointer
+hierarchy, with session-exit cleanup — no stranded regions, no
+descriptor files to manage.
 
 –
 

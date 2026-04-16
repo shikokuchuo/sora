@@ -2,7 +2,7 @@ pandoc: 3.1.11
 pkgdown: 2.2.0
 pkgdown_sha: ~
 articles: {}
-last_built: 2026-04-16T21:54Z
+last_built: 2026-04-16T22:11Z
 urls:
-  reference: https://shikokuchuo.github.io/sora/reference
-  article: https://shikokuchuo.github.io/sora/articles
+  reference: https://shikokuchuo.net/sora/reference
+  article: https://shikokuchuo.net/sora/articles

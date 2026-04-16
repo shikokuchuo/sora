@@ -1,4 +1,4 @@
-# Share an R Object via Shared Memory
+# Create a Shared Object
 
 Write an R object into shared memory and return a version that other
 processes on the same machine can map without copying.
@@ -46,9 +46,9 @@ shared memory before a consumer process has mapped it.
 
 ## See also
 
-[`map_shared()`](https://shikokuchuo.github.io/sora/reference/map_shared.md)
+[`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md)
 to open a shared region by name,
-[`shared_name()`](https://shikokuchuo.github.io/sora/reference/shared_name.md)
+[`shared_name()`](https://shikokuchuo.net/sora/reference/shared_name.md)
 to extract the SHM name.
 
 ## Examples

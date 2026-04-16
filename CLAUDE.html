@@ -77,8 +77,8 @@
 <strong>Tier 1 (pass-through)</strong>: All other R objects (environments, closures, language objects) are returned unchanged by <code><a href="reference/sora.html">sora()</a></code>. No SHM is created.</li>
 </ul></div>
 <div class="section level3">
-<h3 id="sora-dispatch-logic-altrepc-sora_create_call">sora() Dispatch Logic (altrep.c: <code>sora_create_call</code>)<a class="anchor" aria-label="anchor" href="#sora-dispatch-logic-altrepc-sora_create_call"></a></h3>
-<p>All R exported functions are single <code>.Call</code> wrappers. <code><a href="reference/sora.html">sora()</a></code> calls <code>sora_create_call</code> which dispatches on <code>TYPEOF(x)</code>:</p>
+<h3 id="sora-dispatch-logic-altrepc-sora_create">sora() Dispatch Logic (altrep.c: <code>sora_create</code>)<a class="anchor" aria-label="anchor" href="#sora-dispatch-logic-altrepc-sora_create"></a></h3>
+<p>All R exported functions are single <code>.Call</code> wrappers. <code><a href="reference/sora.html">sora()</a></code> calls <code>sora_create</code> which dispatches on <code>TYPEOF(x)</code>:</p>
 <ol style="list-style-type: decimal"><li>
 <code>NILSXP</code> → returned as-is (falls through all checks).</li>
 <li>
@@ -93,7 +93,7 @@
 <h3 id="altrep-serialization-hooks">ALTREP Serialization Hooks<a class="anchor" aria-label="anchor" href="#altrep-serialization-hooks"></a></h3>
 <p>All ALTREP classes register <code>Serialized_state</code> and <code>Unserialize</code> methods.</p>
 <ul><li>
-<strong>Standalone shared objects</strong> (created by <code><a href="reference/sora.html">sora()</a></code> or <code><a href="reference/map_shared.html">map_shared()</a></code>) serialize as just the SHM name string (~30 bytes). On unserialize, <code>sora_Unserialize</code> validates the name via <code>sora_is_shm_name()</code> (checks <code>/sora_</code> prefix on POSIX, <code>Local\sora_</code> on Windows), then <code>sora_shm_open_and_wrap_call</code> opens the SHM and creates a fresh ALTREP wrapper. R’s ALTREP serialization framework separately serializes and restores the object’s attributes.</li>
+<strong>Standalone shared objects</strong> (created by <code><a href="reference/sora.html">sora()</a></code> or <code><a href="reference/map_shared.html">map_shared()</a></code>) serialize as just the SHM name string (~30 bytes). On unserialize, <code>sora_Unserialize</code> validates the name via <code>sora_is_shm_name()</code> (checks <code>/sora_</code> prefix on POSIX, <code>Local\sora_</code> on Windows), then <code>sora_shm_open_and_wrap</code> opens the SHM and creates a fresh ALTREP wrapper. R’s ALTREP serialization framework separately serializes and restores the object’s attributes.</li>
 <li>
 <strong>Element vectors from ALTLIST</strong> serialize as <code>list(parent_name, index)</code>. On unserialize, <code>sora_Unserialize</code> validates element types (first element is STRSXP, second is INTSXP) before treating as an element reference, then <code>sora_open_element</code> opens the parent SHM and extracts the element by index (including restoring per-element attributes from the directory’s <code>attrs_size</code> field). The element’s <code>sora_vec</code>/<code>sora_str</code> struct stores an <code>index</code> field (int32_t, -1 for standalone, &gt;= 0 for ALTLIST elements).</li>
 </ul><p>Fallback to full materialization when: - COW-materialized vectors (data2 is set) - SHM mapping already closed (extptr cleared)</p>
@@ -241,11 +241,11 @@
 <strong>serialize.c</strong>: Counting pass (<code>sora_serialize_count</code>), fixed-buffer write (<code>sora_serialize_into</code>), unserialize-from-buffer (<code>sora_unserialize_from</code>), <code>sora_sizeof_elt</code>
 </li>
 <li>
-<strong>altrep.c</strong>: All ALTREP class definitions and methods, <code>sora_make_vector</code>/<code>sora_make_string</code> helpers, <code>sora_unwrap_element</code> helper (shared element extraction for <code>sora_list_Elt</code> and <code>sora_open_element</code>), <code>sora_restore_attrs</code> helper, <code>sora_is_shm_name</code> validator, unified creation dispatcher (<code>sora_create_call</code>), static per-type creation functions, consumer-side open+wrap dispatch (<code>sora_shm_open_and_wrap_call</code>), element open (<code>sora_open_element</code>), identity check (<code>sora_is_shared_call</code>), name extraction (<code>sora_shm_name_call</code>), serialization hooks (<code>Serialized_state</code>/<code>Unserialize</code>), <code>sora_altrep_init</code>
+<strong>altrep.c</strong>: All ALTREP class definitions and methods, <code>sora_make_vector</code>/<code>sora_make_string</code> helpers, <code>sora_unwrap_element</code> helper (shared element extraction for <code>sora_list_Elt</code> and <code>sora_open_element</code>), <code>sora_restore_attrs</code> helper, <code>sora_is_shm_name</code> validator, unified creation dispatcher (<code>sora_create</code>), static per-type creation functions, consumer-side open+wrap dispatch (<code>sora_shm_open_and_wrap</code>), element open (<code>sora_open_element</code>), identity check (<code>sora_is_shared</code>), name extraction (<code>sora_shm_name</code>), serialization hooks (<code>Serialized_state</code>/<code>Unserialize</code>), <code>sora_altrep_init</code>
 </li>
 <li>
 <strong>init.c</strong>: <code>R_init_sora</code>, <code>.Call</code> registration table (4 entry points: <code>sora_create</code>, <code>sora_shm_open_and_wrap</code>, <code>sora_is_shared</code>, <code>sora_shm_name</code>)</li>
-</ul><p><code>.Call</code> names map to C functions with a <code>_call</code> suffix (e.g., R calls <code>sora_create</code> → C function <code>sora_create_call</code>). All entry points take a single <code>SEXP</code> argument.</p>
+</ul><p><code>.Call</code> names match their C function names. All entry points take a single <code>SEXP</code> argument.</p>
 </div>
 <div class="section level3">
 <h3 id="r-directory">R/ Directory<a class="anchor" aria-label="anchor" href="#r-directory"></a></h3>

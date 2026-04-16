@@ -1,9 +1,9 @@
 # Test if an Object is Shared
 
 Returns `TRUE` if `x` is an ALTREP object backed by shared memory
-(created by
-[`sora()`](https://shikokuchuo.github.io/sora/reference/sora.md) or
-[`map_shared()`](https://shikokuchuo.github.io/sora/reference/map_shared.md)),
+(created by [`sora()`](https://shikokuchuo.net/sora/reference/sora.md)
+or
+[`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md)),
 `FALSE` otherwise.
 
 ## Usage

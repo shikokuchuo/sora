@@ -15,7 +15,7 @@ map_shared(name)
 
   a character string name identifying the shared memory region, as
   returned by
-  [`shared_name()`](https://shikokuchuo.github.io/sora/reference/shared_name.md).
+  [`shared_name()`](https://shikokuchuo.net/sora/reference/shared_name.md).
 
 ## Value
 
@@ -26,9 +26,9 @@ corrupted, an error is raised.
 
 ## See also
 
-[`sora()`](https://shikokuchuo.github.io/sora/reference/sora.md) to
-create a shared object,
-[`shared_name()`](https://shikokuchuo.github.io/sora/reference/shared_name.md)
+[`sora()`](https://shikokuchuo.net/sora/reference/sora.md) to create a
+shared object,
+[`shared_name()`](https://shikokuchuo.net/sora/reference/shared_name.md)
 to extract the name.
 
 ## Examples

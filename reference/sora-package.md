@@ -1,9 +1,9 @@
 # sora: Shared Objects for R Applications
 
 Share R objects via shared memory with
-[`sora()`](https://shikokuchuo.github.io/sora/reference/sora.md), access
-them in other processes with
-[`map_shared()`](https://shikokuchuo.github.io/sora/reference/map_shared.md),
+[`sora()`](https://shikokuchuo.net/sora/reference/sora.md), access them
+in other processes with
+[`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md),
 using R's ALTREP framework for zero-copy memory-mapped access. Shared
 objects serialize compactly via ALTREP serialization hooks. Shared
 memory is automatically freed when the R object is garbage collected.
