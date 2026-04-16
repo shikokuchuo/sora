@@ -581,4 +581,176 @@ gc()
 test_error(map_shared(nm), "failed to open")
 cat("  element keeps parent alive: OK\n")
 
+# ================================================================
+# Unit tests: Pairlist input (coerced to VECSXP)
+# ================================================================
+
+cat("Pairlist input\n")
+
+pl <- pairlist(a = 1, b = 2L, c = "hello")
+spl <- sora(pl)
+test_equal(length(spl), 3L)
+test_identical(spl[[1]][], 1)
+test_identical(spl[[2]][], 2L)
+test_identical(spl[[3]], "hello")
+cat("  pairlist round-trip: OK\n")
+
+# Pairlist via map_shared
+nm <- shared_name(spl)
+spl2 <- map_shared(nm)
+test_identical(spl[[1]][], spl2[[1]][])
+test_identical(spl[[2]][], spl2[[2]][])
+test_identical(spl[[3]], spl2[[3]])
+cat("  pairlist map_shared: OK\n")
+
+# ================================================================
+# Unit tests: Tier 1 elements in list
+# ================================================================
+
+cat("Tier 1 elements in list\n")
+
+lst <- list(fn = sum, val = 1:5, env = globalenv())
+slst <- sora(lst)
+test_identical(slst$fn, sum)
+test_identical(slst$val[], 1:5)
+test_identical(slst$env, globalenv())
+cat("  Tier 1 elements: OK\n")
+
+# Tier 1 list serialize round-trip
+buf <- serialize(slst, NULL)
+y <- unserialize(buf)
+test_identical(y$fn, sum)
+test_identical(y$val[], 1:5)
+cat("  Tier 1 list serialize: OK\n")
+
+# ================================================================
+# Unit tests: Named character vector inside a list
+# ================================================================
+
+cat("String element with attrs in list\n")
+
+lst <- list(x = c(a = "hello", b = "world"), y = 1:3)
+slst <- sora(lst)
+test_identical(slst$x, c(a = "hello", b = "world"))
+test_identical(names(slst$x), c("a", "b"))
+test_identical(slst$y[], 1:3)
+cat("  named char in list: OK\n")
+
+# map_shared round-trip preserves string element attrs
+nm <- shared_name(slst)
+slst2 <- map_shared(nm)
+test_identical(slst2$x, c(a = "hello", b = "world"))
+test_identical(names(slst2$x), c("a", "b"))
+cat("  map_shared string attrs: OK\n")
+
+# Element compact serialization preserves string attrs
+elem <- slst[[1]]
+buf <- serialize(elem, NULL)
+y <- unserialize(buf)
+test_identical(y, c(a = "hello", b = "world"))
+test_identical(names(y), c("a", "b"))
+cat("  element string attrs compact: OK\n")
+
+# ================================================================
+# Unit tests: String vector Dataptr materialization
+# ================================================================
+
+cat("String Dataptr materialization\n")
+
+# make.unique() uses STRING_PTR_RO internally, triggering sora_string_Dataptr
+x <- sora(c("a", "a", "b"))
+y <- map_shared(shared_name(x))
+z <- make.unique(y)
+test_identical(z, c("a", "a.1", "b"))
+# After materialization: Length, Elt use data2 paths
+test_equal(length(y), 3L)
+test_identical(y[1], "a")
+test_identical(y[], c("a", "a", "b"))
+cat("  make.unique triggers Dataptr: OK\n")
+
+# duplicated() on string ALTREP
+x2 <- sora(c("x", "y", "x"))
+y2 <- map_shared(shared_name(x2))
+d <- duplicated(y2)
+test_identical(d, c(FALSE, FALSE, TRUE))
+cat("  duplicated on string: OK\n")
+
+# ================================================================
+# Unit tests: COW-materialized string serialization
+# ================================================================
+
+cat("COW-materialized string serialization\n")
+
+x <- sora(c("alpha", "beta", "gamma"))
+y <- map_shared(shared_name(x))
+y2 <- y
+y2[1] <- "delta"
+buf <- serialize(y2, NULL)
+z <- unserialize(buf)
+test_identical(z, c("delta", "beta", "gamma"))
+cat("  COW string serialize: OK\n")
+
+# ================================================================
+# Unit tests: shared_name on various types
+# ================================================================
+
+cat("shared_name on various types\n")
+
+# shared_name on list/data frame
+df <- sora(data.frame(a = 1:3))
+nm <- shared_name(df)
+test_true(is.character(nm))
+test_true(nchar(nm) > 0L)
+cat("  shared_name list: OK\n")
+
+# shared_name on string vector
+s <- sora(letters)
+nm <- shared_name(s)
+test_true(is.character(nm))
+cat("  shared_name string: OK\n")
+
+# shared_name pass-through for name strings
+nm2 <- shared_name(nm)
+test_identical(nm, nm2)
+cat("  shared_name pass-through: OK\n")
+
+# shared_name error on non-shared object
+test_error(shared_name(1:10), "not a shared")
+cat("  shared_name error: OK\n")
+
+# ================================================================
+# Unit tests: is_shared on various types
+# ================================================================
+
+cat("is_shared on various types\n")
+
+# Shared list
+df <- sora(data.frame(a = 1:3))
+test_true(is_shared(df))
+cat("  is_shared list: OK\n")
+
+# Shared string
+s <- sora(letters)
+test_true(is_shared(s))
+cat("  is_shared string: OK\n")
+
+# Various non-shared types
+test_false(is_shared(NULL))
+test_false(is_shared("hello"))
+test_false(is_shared(data.frame(a = 1)))
+test_false(is_shared(list(1, 2)))
+cat("  is_shared non-shared: OK\n")
+
+# ================================================================
+# Unit tests: Materialized vec Dataptr_or_null
+# ================================================================
+
+cat("Materialized vec Dataptr_or_null\n")
+
+x <- sora(as.double(1:100))
+x[1] <- 999
+# sum() uses REAL_RO which goes through Dataptr_or_null on the materialized vec
+test_equal(sum(x), 999 + sum(2:100))
+cat("  COW vec sum: OK\n")
+
 cat("\nAll tests passed.\n")
