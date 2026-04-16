@@ -1,9 +1,7 @@
 # Share an R Object via Shared Memory
 
-Write an R object into shared memory and return a shared version of the
-object. For Tier 2 objects, the result is ALTREP-backed, providing
-zero-copy access to the shared memory pages. For Tier 1 objects, the
-result is a plain R object.
+Write an R object into shared memory and return a version that other
+processes on the same machine can map without copying.
 
 ## Usage
 
@@ -19,24 +17,21 @@ sora(x)
 
 ## Value
 
-The shared object. For Tier 2 objects (atomic vectors, character
-vectors, lists/data frames with atomic columns), an ALTREP-backed
-object. For Tier 1 objects (environments, closures, language objects),
-the object is returned unchanged.
+For atomic vectors (including character vectors and those with
+attributes such as names, dim, class, or levels) and lists or data
+frames whose elements are such vectors, an ALTREP-backed object that
+reads directly from shared memory. For any other object (environments,
+closures, language objects, `NULL`), the input is returned unchanged
+with no shared memory region created.
 
 ## Details
 
-Two tiers are used depending on the object type:
-
-- **Tier 2 (zero-copy)**: Atomic vectors (including those with
-  attributes such as names, dim, class, or levels), character vectors,
-  and lists/data frames with atomic columns are backed by ALTREP,
-  providing direct access to shared memory pages. Character strings are
-  accessed lazily per element. ALTREP objects serialize compactly as the
-  SHM name (~30 bytes). Attributes are serialized into the SHM region
-  alongside the data.
-
-- **Tier 1**: All other R objects are returned unchanged.
+Attributes are stored alongside the data in the shared memory region and
+restored on the consumer side. Character vectors use a packed layout and
+elements are materialised lazily on access. When serialised (e.g. by
+[`serialize`](https://rdrr.io/r/base/serialize.html) or across a `mirai`
+call), a shared object is represented compactly by its SHM name (~30
+bytes) rather than by its contents.
 
 The shared memory region is managed automatically. It stays alive as
 long as the returned object (or any element extracted from it) is

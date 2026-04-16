@@ -90,7 +90,7 @@
 <span><span class="co"># Share a vector — returns an ALTREP-backed object</span></span>
 <span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/sora.html">sora</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">1e6</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] -0.000759208</span></span>
+<span><span class="co">#&gt; [1] -0.0009981362</span></span>
 <span></span>
 <span><span class="co"># Serialized form is ~100 bytes, not ~8 MB</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/serialize.html" class="external-link">serialize</a></span><span class="op">(</span><span class="va">x</span>, <span class="cn">NULL</span><span class="op">)</span><span class="op">)</span></span>
@@ -106,7 +106,7 @@
 <span><span class="co"># Extract the SHM name</span></span>
 <span><span class="va">nm</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/shared_name.html">shared_name</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span><span class="va">nm</span></span>
-<span><span class="co">#&gt; [1] "/sora_96fb_1"</span></span>
+<span><span class="co">#&gt; [1] "/sora_4c6e_1"</span></span>
 <span></span>
 <span><span class="co"># Another process can map the same region by name</span></span>
 <span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/map_shared.html">map_shared</a></span><span class="op">(</span><span class="va">nm</span><span class="op">)</span></span>
@@ -129,7 +129,7 @@
 <span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://mirai.r-lib.org/reference/mirai.html" class="external-link">mirai</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>, size <span class="op">=</span> <span class="fu">lobstr</span><span class="fu">::</span><span class="fu"><a href="https://lobstr.r-lib.org/reference/obj_size.html" class="external-link">obj_size</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span><span class="op">)</span>, x <span class="op">=</span> <span class="va">x</span><span class="op">)</span></span>
 <span><span class="va">m</span><span class="op">[</span><span class="op">]</span></span>
 <span><span class="co">#&gt; $mean</span></span>
-<span><span class="co">#&gt; [1] -0.0006578232</span></span>
+<span><span class="co">#&gt; [1] 0.001275904</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $size</span></span>
 <span><span class="co">#&gt; 792 B</span></span>
@@ -145,25 +145,25 @@
 <span><span class="co"># Each element is sent as (parent_name, index) — zero-copy on the worker</span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/mirai_map.html" class="external-link">mirai_map</a></span><span class="op">(</span><span class="va">x</span>, \<span class="op">(</span><span class="va">v</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">v</span><span class="op">)</span>, size <span class="op">=</span> <span class="fu">lobstr</span><span class="fu">::</span><span class="fu"><a href="https://lobstr.r-lib.org/reference/obj_size.html" class="external-link">obj_size</a></span><span class="op">(</span><span class="va">v</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="va">.flat</span><span class="op">]</span></span>
 <span><span class="co">#&gt; $a.mean</span></span>
-<span><span class="co">#&gt; [1] 0.0007743037</span></span>
+<span><span class="co">#&gt; [1] 5.630673e-06</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $a.size</span></span>
 <span><span class="co">#&gt; 728 B</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $b.mean</span></span>
-<span><span class="co">#&gt; [1] -0.0006084608</span></span>
+<span><span class="co">#&gt; [1] -0.0009973658</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $b.size</span></span>
 <span><span class="co">#&gt; 728 B</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $c.mean</span></span>
-<span><span class="co">#&gt; [1] 0.0005956364</span></span>
+<span><span class="co">#&gt; [1] -0.0001679982</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $c.size</span></span>
 <span><span class="co">#&gt; 728 B</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $d.mean</span></span>
-<span><span class="co">#&gt; [1] -0.000731392</span></span>
+<span><span class="co">#&gt; [1] -0.0001814566</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $d.size</span></span>
 <span><span class="co">#&gt; 728 B</span></span>
@@ -206,21 +206,20 @@
 <span><span class="co"># Without sora — each daemon deserializes a full copy</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="https://mirai.r-lib.org/reference/mirai_map.html" class="external-link">mirai_map</a></span><span class="op">(</span><span class="va">seeds</span>, <span class="va">boot_means</span>, data <span class="op">=</span> <span class="va">df</span><span class="op">)</span><span class="op">[</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    user  system elapsed </span></span>
-<span><span class="co">#&gt;   2.344  43.516   6.684</span></span>
+<span><span class="co">#&gt;   2.381  45.335   6.613</span></span>
 <span></span>
 <span><span class="co"># With sora — each daemon maps the same shared memory</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="fu"><a href="https://mirai.r-lib.org/reference/mirai_map.html" class="external-link">mirai_map</a></span><span class="op">(</span><span class="va">seeds</span>, <span class="va">boot_means</span>, data <span class="op">=</span> <span class="va">shared_df</span><span class="op">)</span><span class="op">[</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    user  system elapsed </span></span>
-<span><span class="co">#&gt;   1.468  29.664   4.348</span></span>
+<span><span class="co">#&gt;   1.544  31.148   4.469</span></span>
 <span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/daemons.html" class="external-link">daemons</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="how-it-works">How It Works<a class="anchor" aria-label="anchor" href="#how-it-works"></a>
 </h3>
-<p>sora operates in two tiers depending on the object:</p>
-<p><strong>Tier 2 — zero-copy (ALTREP).</strong> All atomic vectors — including character vectors and those with attributes (factors, Dates, named vectors, etc.) — and data frame columns are written directly into shared memory. Pairlists are coerced to lists and handled the same way. <code><a href="reference/sora.html">sora()</a></code> returns ALTREP wrappers that point into the shared pages — no deserialization, no per-process memory allocation. A data frame with 10 columns lives in a single shared region; a task that touches 3 columns pays for 3. Character strings are accessed lazily per element.</p>
-<p><strong>Tier 1 — pass-through.</strong> All other R objects (environments, closures, language objects) are returned unchanged by <code><a href="reference/sora.html">sora()</a></code>.</p>
+<p>All atomic vectors — including character vectors and those with attributes (factors, Dates, named vectors, etc.) — and data frame columns are written directly into shared memory. Pairlists are coerced to lists and handled the same way. <code><a href="reference/sora.html">sora()</a></code> returns ALTREP wrappers that point into the shared pages — no deserialization, no per-process memory allocation. A data frame with 10 columns lives in a single shared region; a task that touches 3 columns pays for 3. Character strings are accessed lazily per element.</p>
+<p>All other R objects (environments, closures, language objects) are returned unchanged by <code><a href="reference/sora.html">sora()</a></code> — no shared memory region is created.</p>
 <figure><img src="reference/figures/sora-diagram.svg" alt="Diagram showing sora() writing an object once into OS-backed shared memory, which is then memory-mapped by other processes using zero-copy ALTREP wrappers"><figcaption aria-hidden="true">
 Diagram showing sora() writing an object once into OS-backed shared memory, which is then memory-mapped by other processes using zero-copy ALTREP wrappers
 </figcaption></figure>
@@ -241,6 +240,8 @@ Diagram showing sora() writing an object once into OS-backed shared memory, whic
 <li>
 <strong>Modifying values</strong> within a shared vector (e.g., <code>X[1] &lt;- 0</code>) materializes just that vector into a private copy. Other vectors in the same shared region stay zero-copy.</li>
 </ul>
+<p>–</p>
+<p>Please note that the sora project is released with a <a href="https://shikokuchuo.net/sora/CODE_OF_CONDUCT.html" class="external-link">Contributor Code of Conduct</a>. By contributing to this project, you agree to abide by its terms.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">
@@ -259,6 +260,12 @@ Diagram showing sora() writing an object once into OS-backed shared memory, whic
 </ul>
 </div>
 
+<div class="community">
+<h2 data-toc-skip>Community</h2>
+<ul class="list-unstyled">
+<li><a href="CODE_OF_CONDUCT.html">Code of conduct</a></li>
+</ul>
+</div>
 
 <div class="citation">
 <h2 data-toc-skip>Citation</h2>
