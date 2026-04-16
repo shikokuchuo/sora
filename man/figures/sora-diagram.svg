@@ -1,40 +1,40 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 280" font-family="system-ui, -apple-system, sans-serif" font-size="13">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 310" font-family="system-ui, -apple-system, sans-serif" font-size="14">
   <!-- Shared Memory box -->
-  <rect x="170" y="20" width="180" height="70" rx="8" fill="#e8f0fe" stroke="#4a7cbf" stroke-width="1.5"/>
-  <text x="260" y="50" text-anchor="middle" font-weight="600" fill="#1a3a5c">Shared Memory</text>
-  <text x="260" y="68" text-anchor="middle" fill="#4a7cbf" font-size="11">(OS-backed)</text>
+  <rect x="250" y="20" width="220" height="60" rx="10" fill="#e8f0fe" stroke="#4a7cbf" stroke-width="1.5"/>
+  <text x="360" y="46" text-anchor="middle" font-weight="600" fill="#1a3a5c">Shared Memory</text>
+  <text x="360" y="66" text-anchor="middle" fill="#4a7cbf" font-size="12">(OS-backed)</text>
 
   <!-- create() label and arrow -->
-  <text x="80" y="60" text-anchor="middle" font-size="12" fill="#333">sora(obj)</text>
-  <text x="80" y="76" text-anchor="middle" font-size="10" fill="#888">write once</text>
-  <line x1="130" y1="55" x2="165" y2="55" stroke="#4a7cbf" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="140" y="44" text-anchor="middle" font-size="11" fill="#888">sora(obj)</text>
+  <text x="140" y="62" text-anchor="middle" font-size="11" fill="#888">write once</text>
+  <line x1="200" y1="48" x2="244" y2="48" stroke="#4a7cbf" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-  <!-- mmap arrows from SHM to daemons -->
-  <line x1="210" y1="90" x2="80" y2="170" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
-  <line x1="240" y1="90" x2="200" y2="170" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
-  <line x1="280" y1="90" x2="320" y2="170" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
-  <line x1="310" y1="90" x2="440" y2="170" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <!-- mmap connector: trunk, crossbar, and 4 prongs -->
+  <line x1="360" y1="80" x2="360" y2="140" stroke="#4a7cbf" stroke-width="1.2"/>
+  <line x1="100" y1="140" x2="620" y2="140" stroke="#4a7cbf" stroke-width="1.2"/>
+  <line x1="100" y1="140" x2="100" y2="198" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="273" y1="140" x2="273" y2="198" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="447" y1="140" x2="447" y2="198" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="620" y1="140" x2="620" y2="198" stroke="#4a7cbf" stroke-width="1.2" marker-end="url(#arrow)"/>
 
   <!-- mmap label -->
-  <text x="145" y="130" text-anchor="middle" fill="#888" font-size="10">mmap</text>
-  <text x="375" y="130" text-anchor="middle" fill="#888" font-size="10">mmap</text>
+  <text x="384" y="130" text-anchor="start" fill="#888" font-size="11">mmap</text>
 
   <!-- Process boxes -->
-  <rect x="30" y="175" width="100" height="40" rx="6" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
-  <text x="80" y="200" text-anchor="middle" fill="#3a5c1a" font-size="12">Process 1</text>
+  <rect x="40" y="202" width="120" height="34" rx="8" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
+  <text x="100" y="224" text-anchor="middle" fill="#3a5c1a" font-size="13">Process 1</text>
 
-  <rect x="150" y="175" width="100" height="40" rx="6" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
-  <text x="200" y="200" text-anchor="middle" fill="#3a5c1a" font-size="12">Process 2</text>
+  <rect x="213" y="202" width="120" height="34" rx="8" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
+  <text x="273" y="224" text-anchor="middle" fill="#3a5c1a" font-size="13">Process 2</text>
 
-  <rect x="270" y="175" width="100" height="40" rx="6" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
-  <text x="320" y="200" text-anchor="middle" fill="#3a5c1a" font-size="12">Process 3</text>
+  <rect x="387" y="202" width="120" height="34" rx="8" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
+  <text x="447" y="224" text-anchor="middle" fill="#3a5c1a" font-size="13">Process 3</text>
 
-  <rect x="390" y="175" width="100" height="40" rx="6" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
-  <text x="440" y="200" text-anchor="middle" fill="#3a5c1a" font-size="12">Process 4</text>
+  <rect x="560" y="202" width="120" height="34" rx="8" fill="#f0f4e8" stroke="#6a9a3a" stroke-width="1.2"/>
+  <text x="620" y="224" text-anchor="middle" fill="#3a5c1a" font-size="13">Process 4</text>
 
   <!-- Subtitle -->
-  <text x="260" y="240" text-anchor="middle" fill="#888" font-size="11" font-style="italic">ALTREP wrappers — zero-copy reads</text>
-  <text x="260" y="258" text-anchor="middle" fill="#888" font-size="11" font-style="italic">serialize(x) sends only the SHM name (~30 bytes)</text>
+  <text x="360" y="270" text-anchor="middle" fill="#888" font-size="12" font-style="italic">ALTREP wrappers — zero-copy reads</text>
 
   <!-- Arrow marker -->
   <defs>
