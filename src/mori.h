@@ -31,6 +31,13 @@ typedef struct mori_vec_s {
   int32_t index;   /* -1 = standalone, >= 0 = element of ALTLIST */
 } mori_vec;
 
+typedef struct mori_list_view_s {
+  unsigned char *base;       /* points to child MORL start */
+  int64_t region_size;       /* bounds all reads within this region */
+  int32_t n_elements;
+  int32_t index;             /* -1 = root, >= 0 = sub-list */
+} mori_list_view;
+
 // shm.c -----------------------------------------------------------------------
 
 int mori_shm_create(mori_shm *shm, size_t size);

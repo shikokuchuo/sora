@@ -65,3 +65,11 @@ test_that("pairlist round-trips via map_shared", {
   expect_identical(spl[[2]][], spl2[[2]][])
   expect_identical(spl[[3]], spl2[[3]])
 })
+
+test_that("share(list(list(1:5))) works directly", {
+  x <- share(list(list(1:5)))
+  expect_identical(x[[1]][[1]][], 1:5)
+  y <- map_shared(shared_name(x))
+  expect_identical(y[[1]][[1]][], 1:5)
+  expect_true(is_shared(y[[1]]))
+})
