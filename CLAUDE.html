@@ -44,7 +44,7 @@
 <p>This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.</p>
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a></h2>
-<p>mori — Shared Memory for R Objects. Uses POSIX shared memory (Linux, macOS) and Win32 file mappings (Windows) with R’s ALTREP framework to let multiple processes on the same machine read the same physical memory pages. No external dependencies. Requires R &gt;= 4.3.0 (for ALTLIST). API: <code><a href="reference/share.html">share()</a></code> → ALTREP shared object, <code><a href="reference/map_shared.html">map_shared()</a></code> → open SHM by name, <code><a href="reference/shared_name.html">shared_name()</a></code> → extract SHM name, <code><a href="reference/is_shared.html">is_shared()</a></code> → test if shared. SHM lifetime is automatic — managed by R’s garbage collector via chained external pointer finalizers. ALTREP serialization hooks serialize standalone shared objects as the SHM name (~30 bytes) and ALTLIST element vectors as <code>(parent_name, index)</code>, enabling transparent use with mirai and any R serialization path.</p>
+<p>mori — Shared Memory for R Objects. Uses POSIX shared memory (Linux, macOS) and Win32 file mappings (Windows) with R’s ALTREP framework to let multiple processes on the same machine read the same physical memory pages. No external dependencies. Requires R &gt;= 4.3.0 (for ALTLIST). API: <code><a href="reference/share.html">share()</a></code> → ALTREP shared object, <code><a href="reference/map_shared.html">map_shared()</a></code> → open SHM by name, <code><a href="reference/shared_name.html">shared_name()</a></code> → extract SHM name, <code><a href="reference/is_shared.html">is_shared()</a></code> → test if shared. SHM lifetime is automatic — managed by R’s garbage collector via chained external pointer finalizers. ALTREP serialization hooks serialize standalone shared objects as the SHM name (~30 bytes) and nested ALTLIST elements (including sub-lists) as <code>(parent_name, integer_path)</code>, enabling transparent use with mirai and any R serialization path. Nested VECSXP elements are zero-copy: each level is an inline self-describing MORL region inside the parent SHM.</p>
 </div>
 <div class="section level2">
 <h2 id="development-commands">Development Commands<a class="anchor" aria-label="anchor" href="#development-commands"></a></h2>
@@ -53,7 +53,6 @@
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Run the full testthat suite</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">test</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<p>Set <code>NOT_CRAN=true</code> environment variable to run integration tests that require mirai daemons.</p>
 </div>
 <div class="section level3">
 <h3 id="building-and-checking">Building and Checking<a class="anchor" aria-label="anchor" href="#building-and-checking"></a></h3>
@@ -74,6 +73,8 @@
 <ul><li>
 <strong>Zero-copy (SHM-backed)</strong>: All atomic vectors (including character vectors and those with arbitrary attributes such as names, class, levels, dim) and data frame columns are written directly into SHM and backed by ALTREP on consumers. Attributes are serialized into a trailing section of the SHM region and restored via <code>SET_ATTRIB</code> on the consumer. For numeric types, <code>Dataptr_or_null</code> returns the SHM pointer for reads; <code>Dataptr(writable=TRUE)</code> materializes a private copy (COW). For character vectors, <code>Elt</code> lazily creates each CHARSXP via <code>Rf_mkCharLenCE</code> from the SHM data; <code>Dataptr_or_null</code> returns NULL to force element-by-element access.</li>
 <li>
+<strong>Nested lists (zero-copy)</strong>: VECSXP/LISTSXP elements of a shared list are written inline as a complete child MORL region at their <code>data_offset</code>. Each nested region is self-describing (magic bytes + header) and recursively contains its own directory, element data, and attributes. Consumers wrap each level in its own ALTLIST via a lightweight <code>mori_list_view</code> (pointer + bounds + index) rather than a full <code>mori_shm</code>. Sub-lists therefore stay zero-copy all the way down and report <code>is_shared(x) == TRUE</code>; <code><a href="reference/shared_name.html">shared_name()</a></code> returns the root SHM name for root lists and <code>""</code> for sub-lists.</li>
+<li>
 <strong>Pass-through</strong>: All other R objects (environments, closures, language objects) are returned unchanged by <code><a href="reference/share.html">share()</a></code>. No SHM is created.</li>
 </ul></div>
 <div class="section level3">
@@ -82,7 +83,7 @@
 <ol style="list-style-type: decimal"><li>
 <code>NILSXP</code> → returned as-is (falls through all checks).</li>
 <li>
-<code>VECSXP</code>/<code>LISTSXP</code> → <code>mori_shm_create_list_call</code> — ALTLIST with per-element directory. Each element is independently zero-copy (any atomic, with or without attributes) or serialized as bytes. Data frames and pairlists go through this path (pairlists are coerced to VECSXP via <code>Rf_coerceVector</code> at the C level).</li>
+<code>VECSXP</code>/<code>LISTSXP</code> → <code>mori_shm_create_list_call</code> — ALTLIST with per-element directory. Writing is split into two passes: <code>mori_nested_size</code> computes the total SHM size (recursing into nested VECSXP/LISTSXP elements), and <code>mori_nested_write</code> produces a complete MORL region at the target base pointer, recursing into child VECSXP/LISTSXP elements by calling itself on <code>base + child_data_offset</code>. Each element is independently zero-copy (any atomic, with or without attributes), serialized as bytes, or a nested MORL region. Data frames and pairlists go through this path (pairlists are coerced to VECSXP via <code>Rf_coerceVector</code>, both at the top level and at each level of the recursion).</li>
 <li>
 <code>STRSXP</code> → <code>mori_shm_create_string_call</code> — ALTSTRING backed by SHM with offset table + packed string data. Attributes (if any) are serialized after the string data.</li>
 <li>Other SHM-eligible types (<code>REALSXP</code>, <code>INTSXP</code>, <code>LGLSXP</code>, <code>RAWSXP</code>, <code>CPLXSXP</code>) → <code>mori_shm_create_vector_call</code> — single ALTREP vector backed by SHM. Attributes (if any) are serialized after the vector data.</li>
@@ -95,7 +96,7 @@
 <ul><li>
 <strong>Standalone shared objects</strong> (created by <code><a href="reference/share.html">share()</a></code> or <code><a href="reference/map_shared.html">map_shared()</a></code>) serialize as just the SHM name string (~30 bytes). On unserialize, <code>mori_Unserialize</code> validates the name via <code>mori_is_shm_name()</code> (checks <code>/mori_</code> prefix on POSIX, <code>Local\mori_</code> on Windows), then <code>mori_shm_open_and_wrap</code> opens the SHM and creates a fresh ALTREP wrapper. R’s ALTREP serialization framework separately serializes and restores the object’s attributes.</li>
 <li>
-<strong>Element vectors from ALTLIST</strong> serialize as <code>list(parent_name, index)</code>. On unserialize, <code>mori_Unserialize</code> validates element types (first element is STRSXP, second is INTSXP) before treating as an element reference, then <code>mori_open_element</code> opens the parent SHM and extracts the element by index (including restoring per-element attributes from the directory’s <code>attrs_size</code> field). The element’s <code>mori_vec</code>/<code>mori_str</code> struct stores an <code>index</code> field (int32_t, -1 for standalone, &gt;= 0 for ALTLIST elements).</li>
+<strong>Element vectors and sub-lists from ALTLIST</strong> serialize as <code>list(parent_name, int_path)</code> where <code>int_path</code> is an INTSXP of length &gt;= 1 giving top-down indices from the root region to the leaf. Length 1 is wire-identical to the previous scalar <code>(name, index)</code> form, so existing serialized blobs remain readable. On unserialize, <code>mori_Unserialize</code> validates element types (first element is STRSXP, second is INTSXP of length &gt;= 1) and that the name looks like a mori SHM name before calling <code>mori_open_path</code>, which opens the root SHM, walks each intermediate VECSXP directory entry via <code>mori_make_list_view</code> (bounds-checking the child region against its parent), and finally calls <code>mori_unwrap_element</code> at the leaf. The element’s <code>mori_vec</code>/<code>mori_str</code> struct stores an <code>index</code> field (int32_t, -1 for standalone, &gt;= 0 for ALTLIST elements), and each <code>mori_list_view</code> likewise stores an <code>index</code> (-1 for a root view, &gt;= 0 for a sub-list) — these indices are what <code>mori_build_path</code> collects while walking the keeper chain up through view extptrs at serialize time.</li>
 </ul><p>Fallback to full materialization when: - COW-materialized vectors (data2 is set) - SHM mapping already closed (extptr cleared)</p>
 </div>
 <div class="section level3">
@@ -155,7 +156,7 @@
 </tr><tr class="odd"><td>varies</td>
 <td></td>
 <td>serialized attributes (names, class, row.names)</td>
-</tr></tbody></table><p>Each element directory entry (32 bytes): <code>data_offset(8) + data_size(8) + sexptype(4) + attrs_size(4) + length(8)</code>. <code>sexptype != 0</code> means zero-copy (raw data or string); <code>sexptype == 0</code> means serialized bytes. <code>sexptype == STRSXP</code> indicates a string element whose data region contains an offset table + packed strings. When <code>attrs_size &gt; 0</code>, the element’s serialized attributes are appended after the raw data within the data region (at offset <code>data_offset + data_size - attrs_size</code>). On the consumer, <code>mori_restore_attrs</code> unserializes and applies them.</p>
+</tr></tbody></table><p>Each element directory entry (32 bytes): <code>data_offset(8) + data_size(8) + sexptype(4) + attrs_size(4) + length(8)</code>. <code>sexptype != 0</code> means zero-copy (raw data, string, or nested list); <code>sexptype == 0</code> means serialized bytes. <code>sexptype == STRSXP</code> indicates a string element whose data region contains an offset table + packed strings. <code>sexptype == VECSXP</code> indicates a nested MORL region inline at <code>data_offset</code> of size <code>data_size</code> (the child’s own header, directory, elements, and attrs all live inside that region); the parent directory entry’s <code>attrs_size</code> is always 0 for VECSXP children — any attributes are part of the child region’s own trailing attrs. For non-nested zero-copy entries with <code>attrs_size &gt; 0</code>, the element’s serialized attributes are appended after the raw data within the data region (at offset <code>data_offset + data_size - attrs_size</code>). On the consumer, <code>mori_restore_attrs</code> unserializes and applies them.</p>
 <p><strong>String vector (MORS):</strong> 24-byte header + offset table + packed string data + optional serialized attributes.</p>
 <table class="table"><colgroup><col width="38%"><col width="28%"><col width="33%"></colgroup><thead><tr class="header"><th>Offset</th>
 <th>Size</th>
@@ -217,16 +218,20 @@
 <div class="section level2">
 <h2 id="internal-state">Internal State<a class="anchor" aria-label="anchor" href="#internal-state"></a></h2>
 <ul><li>
-<strong><code>mori_tag</code></strong> (C global, <code>altrep.c</code>): Interned symbol <code>Rf_install("mori")</code>. Serves two roles: (1) tag on every SHM extptr for <code><a href="reference/is_shared.html">is_shared()</a></code> identification, (2) ALTLIST cache sentinel to distinguish “not yet accessed” from a cached <code>NULL</code> element.</li>
+<strong><code>mori_tag</code></strong> (C global, <code>altrep.c</code>): Interned symbol <code>Rf_install("mori")</code>. Role: ALTLIST cache sentinel only — distinguishes “not yet accessed” from a cached <code>NULL</code> element.</li>
+<li>
+<strong><code>mori_shm_tag</code></strong> (C global, <code>altrep.c</code>): Interned symbol <code>Rf_install("mori_shm")</code>. Tag on every SHM extptr; addr is a <code>mori_shm *</code>.</li>
+<li>
+<strong><code>mori_view_tag</code></strong> (C global, <code>altrep.c</code>): Interned symbol <code>Rf_install("mori_view")</code>. Tag on every list view extptr; addr is a <code>mori_list_view *</code>. The two distinct tags disambiguate the extptr’s addr type without inspecting struct internals and let <code><a href="reference/is_shared.html">is_shared()</a></code> and <code>mori_shm_name</code> stay O(1). <code><a href="reference/is_shared.html">is_shared()</a></code> accepts either tag (list data1 is tagged <code>view</code>; vec/str data1’s prot is tagged either <code>view</code> for elements or <code>shm</code> for standalone).</li>
 </ul><div class="section level3">
 <h3 id="gc-and-lifetime">GC and Lifetime<a class="anchor" aria-label="anchor" href="#gc-and-lifetime"></a></h3>
 <p>SHM lifetime is fully automatic, managed by chaining the host extptr (responsible for <code>shm_unlink</code>/<code>CloseHandle</code>) into the ALTREP object’s external pointer hierarchy.</p>
 <ul><li>
 <strong>Host side (<code>share</code>)</strong>: <code>mori_shm_create</code> allocates the SHM region and mmaps it; on POSIX, the fd is closed immediately after mmap (the mapping stays valid; the <code>mori_shm</code> struct does not retain the fd). <code>mori_make_result</code> splits ownership: the ALTREP wrapper gets the mapping (<code>addr</code>, <code>size</code>) via the daemon-side SHM extptr (<code>mori_shm_finalizer</code> → munmap), and the host extptr gets the handle (<code>name</code> for POSIX unlink, <code>HANDLE</code> for Windows) via <code>mori_host_finalizer</code>. The host extptr is chained as the protected value of the ALTREP’s SHM extptr. When the ALTREP is garbage collected, both finalizers run: munmap + unlink. <code>R_RegisterCFinalizerEx(..., TRUE)</code> ensures cleanup on session exit.</li>
 <li>
-<strong>Consumer side (<code>map_shared</code>/unserialize)</strong>: <code>mori_shm_open</code> maps the region read-only (size discovered via <code>fstat</code>/<code>VirtualQuery</code>); on POSIX, the fd is closed immediately after mmap. Each ALTREP wrapper holds an external pointer (<code>mori_shm_finalizer</code>) that calls <code>munmap</code> (never unlink). ALTLIST element vectors hold a <code>mori_vec</code> or <code>mori_str</code> extptr whose protected value references the parent SHM extptr, keeping the mapping alive. Element vectors store their index (<code>int32_t</code>) in the <code>mori_vec</code>/<code>mori_str</code> struct for compact serialization.</li>
+<strong>Consumer side (<code>map_shared</code>/unserialize)</strong>: <code>mori_shm_open</code> maps the region read-only (size discovered via <code>fstat</code>/<code>VirtualQuery</code>); on POSIX, the fd is closed immediately after mmap. The shm extptr (tag <code>mori_shm_tag</code>) holds the <code>mori_shm *</code> and its <code>mori_shm_finalizer</code> calls <code>munmap</code> (never unlink). For lists, the shm extptr’s immediate child is a root view extptr (tag <code>mori_view_tag</code>, addr <code>mori_list_view *</code>, index=-1) that becomes ALTREP data1; sub-list views (index &gt;= 0) chain through their parent view extptr in the same way. ALTLIST element vectors hold a <code>mori_vec</code> or <code>mori_str</code> extptr whose protected value references the immediate parent view extptr (or the shm extptr, for vec/str at the root of the MORH/MORS regions).</li>
 <li>
-<strong>Element lifetime</strong>: Element vectors extracted from an ALTLIST keep the parent SHM alive through the extptr chain (element → parent SHM extptr → host extptr). Even if the parent ALTLIST is garbage collected, the SHM survives as long as any element is referenced.</li>
+<strong>Element lifetime</strong>: Element vectors and sub-lists extracted from an ALTLIST keep the root SHM alive through the keeper chain (leaf element → parent view(s) → root shm extptr → host extptr). Even if the enclosing ALTLIST(s) are garbage collected, every <code>R_MakeExternalPtr(addr, tag, prot)</code> keeps its <code>prot</code> slot alive, so the chain survives as long as any descendant is referenced. <code>mori_build_path</code> walks this chain at serialize time, collecting view indices (skipping the root view’s -1) until it reaches the shm extptr and reads the name.</li>
 </ul></div>
 </div>
 <div class="section level2">
@@ -234,14 +239,14 @@
 <div class="section level3">
 <h3 id="src-directory">src/ Directory<a class="anchor" aria-label="anchor" href="#src-directory"></a></h3>
 <ul><li>
-<strong>mori.h</strong>: Types (<code>mori_shm</code>, <code>mori_buf</code>, <code>mori_vec</code> with <code>index</code> field), function declarations, <code>MORI_ALIGN64</code> macro</li>
+<strong>mori.h</strong>: Types (<code>mori_shm</code>, <code>mori_buf</code>, <code>mori_vec</code> with <code>index</code> field, <code>mori_list_view</code>), function declarations, <code>MORI_ALIGN64</code> macro</li>
 <li>
 <strong>shm.c</strong>: Platform-abstracted SHM create/open/close. On Linux, uses <code>open("/dev/shm/...")</code> directly to avoid <code>-lrt</code> link dependency. On macOS, uses <code>shm_open</code>/<code>shm_unlink</code> (in libc). Finalizers for both host and daemon side.</li>
 <li>
 <strong>serialize.c</strong>: Counting pass (<code>mori_serialize_count</code>), fixed-buffer write (<code>mori_serialize_into</code>), unserialize-from-buffer (<code>mori_unserialize_from</code>), <code>mori_sizeof_elt</code>
 </li>
 <li>
-<strong>altrep.c</strong>: All ALTREP class definitions and methods, <code>mori_make_vector</code>/<code>mori_make_string</code> helpers, <code>mori_unwrap_element</code> helper (shared element extraction for <code>mori_list_Elt</code> and <code>mori_open_element</code>), <code>mori_restore_attrs</code> helper, <code>mori_is_shm_name</code> validator, unified creation dispatcher (<code>mori_create</code>), static per-type creation functions, consumer-side open+wrap dispatch (<code>mori_shm_open_and_wrap</code>), element open (<code>mori_open_element</code>), identity check (<code>mori_is_shared</code>), name extraction (<code>mori_shm_name</code>), serialization hooks (<code>Serialized_state</code>/<code>Unserialize</code>), <code>mori_altrep_init</code>
+<strong>altrep.c</strong>: All ALTREP class definitions and methods, <code>mori_make_vector</code>/<code>mori_make_string</code>/<code>mori_make_list_view</code> helpers, <code>mori_unwrap_element</code> helper (shared element extraction for <code>mori_list_Elt</code> and <code>mori_open_path</code>; validates dir bounds against the enclosing region), <code>mori_restore_attrs</code> helper, <code>mori_is_shm_name</code> validator, unified creation dispatcher (<code>mori_create</code>), recursive writer helpers <code>mori_nested_size</code> / <code>mori_nested_write</code>, consumer-side open+wrap dispatch (<code>mori_shm_open_and_wrap</code>), path open (<code>mori_open_path</code>), identity check (<code>mori_is_shared</code>), name extraction (<code>mori_shm_name</code>), serialization hooks (<code>Serialized_state</code>/<code>Unserialize</code>), <code>mori_build_path</code> (keeper-chain walker), <code>mori_altrep_init</code>
 </li>
 <li>
 <strong>init.c</strong>: <code>R_init_mori</code>, <code>.Call</code> registration table (4 entry points: <code>mori_create</code>, <code>mori_shm_open_and_wrap</code>, <code>mori_is_shared</code>, <code>mori_shm_name</code>)</li>
@@ -267,6 +272,8 @@
 <li>
 <code>test-list.R</code> — ALTLIST (data frames, mixed lists, NULL elements, duplicate, pairlist)</li>
 <li>
+<code>test-nested.R</code> — nested VECSXP elements (sub-lists, list-columns, deep structures, path-based serialization, sub-list COW, GC with nested references)</li>
+<li>
 <code>test-attributes.R</code> — attribute preservation (names, factor, Date, POSIXct, matrix)</li>
 <li>
 <code>test-cow.R</code> — copy-on-write for numeric and string vectors, <code>Dataptr_or_null</code> on materialized vec</li>
@@ -276,7 +283,7 @@
 <code>test-gc.R</code> — automatic SHM cleanup by garbage collector</li>
 <li>
 <code>test-api.R</code> — <code><a href="reference/share.html">share()</a></code>/<code><a href="reference/map_shared.html">map_shared()</a></code>/<code><a href="reference/shared_name.html">shared_name()</a></code>/<code><a href="reference/is_shared.html">is_shared()</a></code> behaviour including invalid inputs</li>
-</ul><p>Integration tests (with mirai daemons) are gated behind <code>NOT_CRAN=true</code>.</p>
+</ul><p>All tests run unconditionally; nothing is gated behind <code>skip_on_cran</code> or environment variables.</p>
 </div>
 <div class="section level2">
 <h2 id="platform-notes">Platform Notes<a class="anchor" aria-label="anchor" href="#platform-notes"></a></h2>
