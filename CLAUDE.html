@@ -51,8 +51,8 @@
 <div class="section level3">
 <h3 id="testing">Testing<a class="anchor" aria-label="anchor" href="#testing"></a></h3>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Run unit tests (single file, minitest framework — not testthat)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/source.html" class="external-link">source</a></span><span class="op">(</span><span class="st">"tests/tests.R"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="co"># Run the full testthat suite</span></span>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">test</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p>Set <code>NOT_CRAN=true</code> environment variable to run integration tests that require mirai daemons.</p>
 </div>
 <div class="section level3">
@@ -70,11 +70,11 @@
 <div class="section level2">
 <h2 id="key-architecture">Key Architecture<a class="anchor" aria-label="anchor" href="#key-architecture"></a></h2>
 <div class="section level3">
-<h3 id="two-tier-design">Two-Tier Design<a class="anchor" aria-label="anchor" href="#two-tier-design"></a></h3>
+<h3 id="storage-model">Storage Model<a class="anchor" aria-label="anchor" href="#storage-model"></a></h3>
 <ul><li>
-<strong>Tier 2 (zero-copy)</strong>: All atomic vectors (including character vectors and those with arbitrary attributes such as names, class, levels, dim) and data frame columns are written directly into SHM and backed by ALTREP on consumers. Attributes are serialized into a trailing section of the SHM region and restored via <code>SET_ATTRIB</code> on the consumer. For numeric types, <code>Dataptr_or_null</code> returns the SHM pointer for reads; <code>Dataptr(writable=TRUE)</code> materializes a private copy (COW). For character vectors, <code>Elt</code> lazily creates each CHARSXP via <code>Rf_mkCharLenCE</code> from the SHM data; <code>Dataptr_or_null</code> returns NULL to force element-by-element access.</li>
+<strong>Zero-copy (SHM-backed)</strong>: All atomic vectors (including character vectors and those with arbitrary attributes such as names, class, levels, dim) and data frame columns are written directly into SHM and backed by ALTREP on consumers. Attributes are serialized into a trailing section of the SHM region and restored via <code>SET_ATTRIB</code> on the consumer. For numeric types, <code>Dataptr_or_null</code> returns the SHM pointer for reads; <code>Dataptr(writable=TRUE)</code> materializes a private copy (COW). For character vectors, <code>Elt</code> lazily creates each CHARSXP via <code>Rf_mkCharLenCE</code> from the SHM data; <code>Dataptr_or_null</code> returns NULL to force element-by-element access.</li>
 <li>
-<strong>Tier 1 (pass-through)</strong>: All other R objects (environments, closures, language objects) are returned unchanged by <code><a href="reference/share.html">share()</a></code>. No SHM is created.</li>
+<strong>Pass-through</strong>: All other R objects (environments, closures, language objects) are returned unchanged by <code><a href="reference/share.html">share()</a></code>. No SHM is created.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="share-dispatch-logic-altrepc-sora_create">share() Dispatch Logic (altrep.c: <code>sora_create</code>)<a class="anchor" aria-label="anchor" href="#share-dispatch-logic-altrepc-sora_create"></a></h3>
@@ -82,11 +82,11 @@
 <ol style="list-style-type: decimal"><li>
 <code>NILSXP</code> → returned as-is (falls through all checks).</li>
 <li>
-<code>VECSXP</code>/<code>LISTSXP</code> → <code>sora_shm_create_list_call</code> — ALTLIST with per-element directory. Each element is independently Tier 2 (any atomic, with or without attributes) or Tier 1 (serialized). Data frames and pairlists go through this path (pairlists are coerced to VECSXP via <code>Rf_coerceVector</code> at the C level).</li>
+<code>VECSXP</code>/<code>LISTSXP</code> → <code>sora_shm_create_list_call</code> — ALTLIST with per-element directory. Each element is independently zero-copy (any atomic, with or without attributes) or serialized as bytes. Data frames and pairlists go through this path (pairlists are coerced to VECSXP via <code>Rf_coerceVector</code> at the C level).</li>
 <li>
 <code>STRSXP</code> → <code>sora_shm_create_string_call</code> — ALTSTRING backed by SHM with offset table + packed string data. Attributes (if any) are serialized after the string data.</li>
-<li>Other Tier 2 eligible types (<code>REALSXP</code>, <code>INTSXP</code>, <code>LGLSXP</code>, <code>RAWSXP</code>, <code>CPLXSXP</code>) → <code>sora_shm_create_vector_call</code> — single ALTREP vector backed by SHM. Attributes (if any) are serialized after the vector data.</li>
-<li>Everything else → returned as-is (Tier 1 pass-through).</li>
+<li>Other SHM-eligible types (<code>REALSXP</code>, <code>INTSXP</code>, <code>LGLSXP</code>, <code>RAWSXP</code>, <code>CPLXSXP</code>) → <code>sora_shm_create_vector_call</code> — single ALTREP vector backed by SHM. Attributes (if any) are serialized after the vector data.</li>
+<li>Everything else → returned as-is (pass-through).</li>
 </ol><p>Each creation path returns the ALTREP result via <code>sora_make_result</code>, which chains the host extptr (responsible for <code>shm_unlink</code>) into the ALTREP’s external pointer hierarchy. SHM lifetime is thus tied to the R object — when the ALTREP is garbage collected, both munmap and unlink happen automatically.</p>
 </div>
 <div class="section level3">
@@ -155,7 +155,7 @@
 </tr><tr class="odd"><td>varies</td>
 <td></td>
 <td>serialized attributes (names, class, row.names)</td>
-</tr></tbody></table><p>Each element directory entry (32 bytes): <code>data_offset(8) + data_size(8) + sexptype(4) + attrs_size(4) + length(8)</code>. <code>sexptype != 0</code> means Tier 2 (raw data or string); <code>sexptype == 0</code> means Tier 1 (serialized bytes). <code>sexptype == STRSXP</code> indicates a string element whose data region contains an offset table + packed strings. When <code>attrs_size &gt; 0</code>, the element’s serialized attributes are appended after the raw data within the data region (at offset <code>data_offset + data_size - attrs_size</code>). On the consumer, <code>sora_restore_attrs</code> unserializes and applies them.</p>
+</tr></tbody></table><p>Each element directory entry (32 bytes): <code>data_offset(8) + data_size(8) + sexptype(4) + attrs_size(4) + length(8)</code>. <code>sexptype != 0</code> means zero-copy (raw data or string); <code>sexptype == 0</code> means serialized bytes. <code>sexptype == STRSXP</code> indicates a string element whose data region contains an offset table + packed strings. When <code>attrs_size &gt; 0</code>, the element’s serialized attributes are appended after the raw data within the data region (at offset <code>data_offset + data_size - attrs_size</code>). On the consumer, <code>sora_restore_attrs</code> unserializes and applies them.</p>
 <p><strong>String vector (SORS):</strong> 24-byte header + offset table + packed string data + optional serialized attributes.</p>
 <table class="table"><colgroup><col width="38%"><col width="28%"><col width="33%"></colgroup><thead><tr class="header"><th>Offset</th>
 <th>Size</th>
@@ -257,8 +257,26 @@
 </div>
 <div class="section level2">
 <h2 id="testing-1">Testing<a class="anchor" aria-label="anchor" href="#testing-1"></a></h2>
-<p>Uses <strong>minitest</strong>, a minimal framework defined at the top of <code>tests/tests.R</code>: - <code>test_true()</code>, <code>test_false()</code>, <code>test_null()</code>, <code>test_equal()</code>, <code>test_identical()</code>, <code>test_class()</code>, <code>test_error()</code></p>
-<p>All tests run sequentially in a single file. Integration tests (with mirai daemons) are gated behind <code>NOT_CRAN=true</code>.</p>
+<p>Uses <strong>testthat</strong> (edition 3). The entry point is <code>tests/testthat.R</code>; individual tests live in <code>tests/testthat/test-*.R</code>, grouped by topic:</p>
+<ul><li>
+<code>test-passthrough.R</code> — pass-through (formulas, NULL, closures/environments inside lists)</li>
+<li>
+<code>test-vectors.R</code> — atomic vector round-trip (double, integer, logical, raw, complex, matrix, empty)</li>
+<li>
+<code>test-strings.R</code> — ALTSTRING behaviour (basic, NA, empty, UTF-8, large, data frame column, list element, <code>Dataptr</code> materialization via <code>make.unique</code>/<code>duplicated</code>)</li>
+<li>
+<code>test-list.R</code> — ALTLIST (data frames, mixed lists, NULL elements, duplicate, pairlist)</li>
+<li>
+<code>test-attributes.R</code> — attribute preservation (names, factor, Date, POSIXct, matrix)</li>
+<li>
+<code>test-cow.R</code> — copy-on-write for numeric and string vectors, <code>Dataptr_or_null</code> on materialized vec</li>
+<li>
+<code>test-serialization.R</code> — ALTREP <code>Serialized_state</code>/<code>Unserialize</code> hooks (standalone, element, compact size, COW fallback, attributes)</li>
+<li>
+<code>test-gc.R</code> — automatic SHM cleanup by garbage collector</li>
+<li>
+<code>test-api.R</code> — <code><a href="reference/share.html">share()</a></code>/<code><a href="reference/map_shared.html">map_shared()</a></code>/<code><a href="reference/shared_name.html">shared_name()</a></code>/<code><a href="reference/is_shared.html">is_shared()</a></code> behaviour including invalid inputs</li>
+</ul><p>Integration tests (with mirai daemons) are gated behind <code>NOT_CRAN=true</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="platform-notes">Platform Notes<a class="anchor" aria-label="anchor" href="#platform-notes"></a></h2>
