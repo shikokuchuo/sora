@@ -10,9 +10,10 @@ static R_altrep_class_t mori_logical_class;
 static R_altrep_class_t mori_raw_class;
 static R_altrep_class_t mori_complex_class;
 static R_altrep_class_t mori_string_class;
-static SEXP mori_tag;        /* ALTLIST cache sentinel */
-static SEXP mori_shm_tag;    /* tag on shm extptrs (addr is mori_shm *) */
-static SEXP mori_view_tag;   /* tag on view extptrs (addr is mori_list_view *) */
+static SEXP mori_tag;        /* ALTLIST cache sentinel (VECSXP marker, not an extptr tag) */
+static SEXP mori_shm_tag;    /* tag on SHM mapping extptrs (addr is mori_shm *) */
+static SEXP mori_host_tag;   /* tag on host-only unlink extptrs (addr is mori_shm *) */
+static SEXP mori_owned_tag;  /* tag on every mori ALTREP data1 extptr; addr type dispatched via TYPEOF(x) */
 
 // Element directory (for list SHM layout) -------------------------------------
 
@@ -92,9 +93,9 @@ static int mori_is_shm_name(const char *s) {
 #endif
 }
 
-// Vec finalizer: frees the mori_vec struct only -------------------------------
+// Generic finalizer for mori_owned_tag extptrs (vec / str / view) ------------
 
-static void mori_vec_finalizer(SEXP ptr) {
+static void mori_owned_finalizer(SEXP ptr) {
   void *v = R_ExternalPtrAddr(ptr);
   if (v) {
     free(v);
@@ -106,8 +107,9 @@ static void mori_vec_finalizer(SEXP ptr) {
 
 /*
  * Layout:
- *   data1 = extptr to mori_vec { data, length }
- *           protected value keeps the parent SHM extptr alive
+ *   data1 = extptr (tag = mori_owned_tag, addr = mori_vec *)
+ *           protected value keeps the parent SHM extptr alive (shm_tag for
+ *           standalone, parent view for element within an ALTLIST)
  *   data2 = R_NilValue while SHM-backed; regular SEXP after materialization
  */
 
@@ -157,8 +159,8 @@ static SEXP mori_make_vector(const void *data, R_xlen_t length,
   v->length = length;
   v->index = -1;
 
-  SEXP ptr = PROTECT(R_MakeExternalPtr(v, R_NilValue, keeper));
-  R_RegisterCFinalizerEx(ptr, mori_vec_finalizer, TRUE);
+  SEXP ptr = PROTECT(R_MakeExternalPtr(v, mori_owned_tag, keeper));
+  R_RegisterCFinalizerEx(ptr, mori_owned_finalizer, TRUE);
 
   R_altrep_class_t cls;
   switch (sexptype) {
@@ -186,8 +188,9 @@ static SEXP mori_make_vector(const void *data, R_xlen_t length,
  * str_length < 0 means NA_STRING.
  *
  * Layout:
- *   data1 = extptr to mori_str { table, data, length }
- *           protected value keeps the parent SHM extptr alive
+ *   data1 = extptr (tag = mori_owned_tag, addr = mori_str *)
+ *           protected value keeps the parent SHM extptr alive (shm_tag for
+ *           standalone, parent view for element within an ALTLIST)
  *   data2 = R_NilValue while SHM-backed; regular STRSXP after materialization
  */
 
@@ -272,8 +275,8 @@ static SEXP mori_make_string(const unsigned char *region_base,
   s->length = n;
   s->index = -1;
 
-  SEXP ptr = PROTECT(R_MakeExternalPtr(s, R_NilValue, keeper));
-  R_RegisterCFinalizerEx(ptr, mori_vec_finalizer, TRUE);
+  SEXP ptr = PROTECT(R_MakeExternalPtr(s, mori_owned_tag, keeper));
+  R_RegisterCFinalizerEx(ptr, mori_owned_finalizer, TRUE);
 
   SEXP result = R_new_altrep(mori_string_class, ptr, R_NilValue);
   UNPROTECT(1);
@@ -341,8 +344,8 @@ static SEXP mori_unwrap_element(unsigned char *base, int64_t region_size,
 
 /*
  * Layout:
- *   data1 = extptr (tag = mori_view_tag) to mori_list_view
- *           prot: parent extptr (shm for root; parent view for sub-list)
+ *   data1 = extptr (tag = mori_owned_tag, addr = mori_list_view *)
+ *           prot: parent extptr (shm_tag for root; parent view for sub-list)
  *   data2 = R_NilValue or cache VECSXP (length n, initialized to mori_tag)
  *
  * MORL region layout (same whether root SHM or nested inside a parent):
@@ -353,7 +356,7 @@ static SEXP mori_unwrap_element(unsigned char *base, int64_t region_size,
  *   Byte 24+:    element directory (32 bytes per element)
  */
 
-/* keeper: parent extptr (shm_tag for root, view_tag for sub-list).
+/* keeper: parent extptr (shm_tag for root, owned_tag for sub-list).
    Validates the MORL header before touching it so corrupt input errors
    cleanly rather than SEGV. */
 static SEXP mori_make_list_view(unsigned char *base, int64_t region_size,
@@ -386,8 +389,8 @@ static SEXP mori_make_list_view(unsigned char *base, int64_t region_size,
   v->n_elements = n;
   v->index = index;
 
-  SEXP ptr = PROTECT(R_MakeExternalPtr(v, mori_view_tag, keeper));
-  R_RegisterCFinalizerEx(ptr, mori_vec_finalizer, TRUE);
+  SEXP ptr = PROTECT(R_MakeExternalPtr(v, mori_owned_tag, keeper));
+  R_RegisterCFinalizerEx(ptr, mori_owned_finalizer, TRUE);
 
   /* Cache is allocated lazily on first Elt access */
   SEXP result = PROTECT(R_new_altrep(mori_list_class, ptr, R_NilValue));
@@ -478,7 +481,7 @@ static SEXP mori_make_result(mori_shm *shm) {
   shm->handle = NULL;
 #endif
 
-  SEXP host_ptr = PROTECT(R_MakeExternalPtr(host, R_NilValue, R_NilValue));
+  SEXP host_ptr = PROTECT(R_MakeExternalPtr(host, mori_host_tag, R_NilValue));
   R_RegisterCFinalizerEx(host_ptr, mori_host_finalizer, TRUE);
 
   /* Dispatch on magic bytes to wrap in ALTREP */
@@ -859,7 +862,6 @@ static SEXP mori_open_vector(mori_shm *shm_stack) {
   SEXP result = PROTECT(mori_make_vector(
     base + 64, (R_xlen_t) length, sexptype, shm_ptr
   ));
-  R_SetExternalPtrTag(R_altrep_data1(result), Rf_mkChar(shm->name));
 
   /* Restore attributes */
   if (attrs_size > 0) {
@@ -891,7 +893,6 @@ static SEXP mori_open_string(mori_shm *shm_stack) {
   SEXP result = PROTECT(mori_make_string(
     base + 24, (R_xlen_t) n, shm_ptr
   ));
-  R_SetExternalPtrTag(R_altrep_data1(result), Rf_mkChar(shm->name));
 
   /* Restore attributes */
   if (attrs_size > 0)
@@ -943,55 +944,33 @@ SEXP mori_shm_open_and_wrap(SEXP name) {
 SEXP mori_is_shared(SEXP x) {
   if (!ALTREP(x)) return Rf_ScalarLogical(0);
   SEXP d1 = R_altrep_data1(x);
-  if (TYPEOF(d1) != EXTPTRSXP) return Rf_ScalarLogical(0);
-  SEXP tag = R_ExternalPtrTag(d1);
-  /* List (root or sub-list): data1 tag == mori_view_tag */
-  if (tag == mori_view_tag) return Rf_ScalarLogical(1);
-  /* Vec/str: data1's prot is either a view extptr or the root shm extptr */
-  SEXP prot = R_ExternalPtrProtected(d1);
-  if (TYPEOF(prot) == EXTPTRSXP) {
-    SEXP ptag = R_ExternalPtrTag(prot);
-    if (ptag == mori_view_tag || ptag == mori_shm_tag)
-      return Rf_ScalarLogical(1);
-  }
-  return Rf_ScalarLogical(0);
+  return Rf_ScalarLogical(
+    TYPEOF(d1) == EXTPTRSXP &&
+    R_ExternalPtrTag(d1) == mori_owned_tag
+  );
 }
 
 SEXP mori_shm_name(SEXP x) {
   if (!ALTREP(x)) return R_BlankScalarString;
   SEXP d1 = R_altrep_data1(x);
-  if (TYPEOF(d1) != EXTPTRSXP) return R_BlankScalarString;
-  SEXP tag = R_ExternalPtrTag(d1);
-
-  /* Standalone vec/str: data1 tag is CHARSXP name */
-  if (tag != R_NilValue && TYPEOF(tag) == CHARSXP)
-    return Rf_ScalarString(tag);
-
-  /* List: data1 is a view extptr */
-  if (tag == mori_view_tag) {
-    mori_list_view *v = (mori_list_view *) R_ExternalPtrAddr(d1);
-    if (v != NULL && v->index == -1) {
-      /* Root view: prot is the shm extptr (guaranteed shm_tag) */
-      SEXP shm_ptr = R_ExternalPtrProtected(d1);
-      if (TYPEOF(shm_ptr) == EXTPTRSXP &&
-          R_ExternalPtrTag(shm_ptr) == mori_shm_tag) {
-        mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(shm_ptr);
-        if (shm != NULL && shm->name[0] != '\0')
-          return Rf_mkString(shm->name);
-      }
-    }
-    /* Sub-list (index >= 0): no standalone name */
-  }
-
-  return R_BlankScalarString;
+  if (TYPEOF(d1) != EXTPTRSXP ||
+      R_ExternalPtrTag(d1) != mori_owned_tag)
+    return R_BlankScalarString;
+  SEXP prot = R_ExternalPtrProtected(d1);
+  if (R_ExternalPtrTag(prot) != mori_shm_tag)
+    return R_BlankScalarString;  /* element or sub-list */
+  mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(prot);
+  return Rf_mkString(shm->name);
 }
 
 // ALTREP serialization hooks --------------------------------------------------
 
-/* Walks the keeper chain through view extptrs and returns list(name, path)
-   where path is an INTSXP of (collected indices + leaf_index) in top-down
-   order. Returns R_NilValue if the chain is invalid or the root SHM has
-   been invalidated. */
+/* Walks the keeper chain through owned-tag view extptrs and returns
+   list(name, path) where path is an INTSXP of (collected indices +
+   leaf_index) in top-down order. The only legitimate R_NilValue return is
+   MORI_MAX_PATH overflow: any ALTREP holding this chain keeps every hop
+   (and the root shm->name) live, so other reachability guards are
+   unreachable. */
 #define MORI_MAX_PATH 64
 
 static SEXP mori_build_path(SEXP keeper_extptr, int32_t leaf_index) {
@@ -1000,10 +979,8 @@ static SEXP mori_build_path(SEXP keeper_extptr, int32_t leaf_index) {
   int n_collected = 0;
 
   SEXP hop = keeper_extptr;
-  while (TYPEOF(hop) == EXTPTRSXP &&
-         R_ExternalPtrTag(hop) == mori_view_tag) {
+  while (R_ExternalPtrTag(hop) == mori_owned_tag) {
     mori_list_view *view = (mori_list_view *) R_ExternalPtrAddr(hop);
-    if (view == NULL) return R_NilValue;
     if (view->index >= 0) {
       if (n_collected >= MORI_MAX_PATH) return R_NilValue;
       collected[n_collected++] = view->index;
@@ -1011,12 +988,7 @@ static SEXP mori_build_path(SEXP keeper_extptr, int32_t leaf_index) {
     hop = R_ExternalPtrProtected(hop);
   }
 
-  if (TYPEOF(hop) != EXTPTRSXP ||
-      R_ExternalPtrTag(hop) != mori_shm_tag)
-    return R_NilValue;
-
   mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(hop);
-  if (shm == NULL || shm->name[0] == '\0') return R_NilValue;
 
   SEXP path = PROTECT(Rf_allocVector(INTSXP, n_collected + 1));
   int *pp = INTEGER(path);
@@ -1033,29 +1005,24 @@ static SEXP mori_build_path(SEXP keeper_extptr, int32_t leaf_index) {
 }
 
 static SEXP mori_vec_Serialized_state(SEXP x) {
+  SEXP data2 = R_altrep_data2(x);
+  if (data2 != R_NilValue) return data2;  /* COW-materialized copy */
+
   SEXP data1 = R_altrep_data1(x);
-  SEXP tag = R_ExternalPtrTag(data1);
-
-  /* Standalone with valid SHM → compact name */
-  if (tag != R_NilValue && TYPEOF(tag) == CHARSXP &&
-      R_altrep_data2(x) == R_NilValue &&
-      R_ExternalPtrAddr(data1) != NULL)
-    return Rf_ScalarString(tag);
-
-  /* COW-materialized → return materialized copy */
-  if (R_altrep_data2(x) != R_NilValue)
-    return R_altrep_data2(x);
-
-  /* Element (index >= 0) → build path via keeper chain */
   mori_vec *v = (mori_vec *) R_ExternalPtrAddr(data1);
-  if (v != NULL && v->index >= 0) {
-    SEXP state = mori_build_path(R_ExternalPtrProtected(data1), v->index);
-    if (state != R_NilValue) return state;
+
+  if (v->index == -1) {
+    /* Standalone: prot is shm extptr by construction; name is live. */
+    mori_shm *shm = (mori_shm *)
+      R_ExternalPtrAddr(R_ExternalPtrProtected(data1));
+    return Rf_mkString(shm->name);
   }
 
-  /* Closed, detached, or invalidated → materialize from SHM */
-  if (v == NULL)
-    return Rf_allocVector(TYPEOF(x), 0);
+  /* Element: walk keeper chain to build (name, path). */
+  SEXP state = mori_build_path(R_ExternalPtrProtected(data1), v->index);
+  if (state != R_NilValue) return state;
+
+  /* Only reachable when nesting depth exceeds MORI_MAX_PATH: materialize. */
   R_xlen_t n = v->length;
   int type = TYPEOF(x);
   SEXP mat = PROTECT(Rf_allocVector(type, n));
@@ -1065,26 +1032,24 @@ static SEXP mori_vec_Serialized_state(SEXP x) {
 }
 
 static SEXP mori_string_Serialized_state(SEXP x) {
+  SEXP data2 = R_altrep_data2(x);
+  if (data2 != R_NilValue) return data2;  /* COW-materialized copy */
+
   SEXP data1 = R_altrep_data1(x);
-  SEXP tag = R_ExternalPtrTag(data1);
-
-  if (tag != R_NilValue && TYPEOF(tag) == CHARSXP &&
-      R_altrep_data2(x) == R_NilValue &&
-      R_ExternalPtrAddr(data1) != NULL)
-    return Rf_ScalarString(tag);
-
-  if (R_altrep_data2(x) != R_NilValue)
-    return R_altrep_data2(x);
-
   mori_str *s = (mori_str *) R_ExternalPtrAddr(data1);
-  if (s != NULL && s->index >= 0) {
-    SEXP state = mori_build_path(R_ExternalPtrProtected(data1), s->index);
-    if (state != R_NilValue) return state;
+
+  if (s->index == -1) {
+    /* Standalone: prot is shm extptr by construction; name is live. */
+    mori_shm *shm = (mori_shm *)
+      R_ExternalPtrAddr(R_ExternalPtrProtected(data1));
+    return Rf_mkString(shm->name);
   }
 
-  /* Closed, detached, or invalidated → materialize from SHM */
-  if (s == NULL)
-    return Rf_allocVector(STRSXP, 0);
+  /* Element: walk keeper chain to build (name, path). */
+  SEXP state = mori_build_path(R_ExternalPtrProtected(data1), s->index);
+  if (state != R_NilValue) return state;
+
+  /* Only reachable when nesting depth exceeds MORI_MAX_PATH: materialize. */
   R_xlen_t n = s->length;
   SEXP mat = PROTECT(Rf_allocVector(STRSXP, n));
   for (R_xlen_t i = 0; i < n; i++)
@@ -1095,7 +1060,7 @@ static SEXP mori_string_Serialized_state(SEXP x) {
 
 static SEXP mori_list_Serialized_state(SEXP x) {
   SEXP data1 = R_altrep_data1(x);
-  if (R_ExternalPtrTag(data1) != mori_view_tag)
+  if (R_ExternalPtrTag(data1) != mori_owned_tag)
     return Rf_allocVector(VECSXP, 0);
 
   mori_list_view *view = (mori_list_view *) R_ExternalPtrAddr(data1);
@@ -1234,7 +1199,8 @@ void mori_altrep_init(DllInfo *dll) {
 
   mori_tag = Rf_install("mori");
   mori_shm_tag = Rf_install("mori_shm");
-  mori_view_tag = Rf_install("mori_view");
+  mori_host_tag = Rf_install("mori_host");
+  mori_owned_tag = Rf_install("mori_owned");
 
   /* ALTLIST class */
   mori_list_class = R_make_altlist_class("mori_list", "mori", dll);
