@@ -11,8 +11,8 @@ sora — Shared Objects for R Applications. Uses POSIX shared memory (Linux, mac
 ### Testing
 
 ```r
-# Run unit tests (single file, minitest framework — not testthat)
-source("tests/tests.R")
+# Run the full testthat suite
+devtools::test()
 ```
 
 Set `NOT_CRAN=true` environment variable to run integration tests that require mirai daemons.
@@ -34,20 +34,20 @@ devtools::document()
 
 ## Key Architecture
 
-### Two-Tier Design
+### Storage Model
 
-- **Tier 2 (zero-copy)**: All atomic vectors (including character vectors and those with arbitrary attributes such as names, class, levels, dim) and data frame columns are written directly into SHM and backed by ALTREP on consumers. Attributes are serialized into a trailing section of the SHM region and restored via `SET_ATTRIB` on the consumer. For numeric types, `Dataptr_or_null` returns the SHM pointer for reads; `Dataptr(writable=TRUE)` materializes a private copy (COW). For character vectors, `Elt` lazily creates each CHARSXP via `Rf_mkCharLenCE` from the SHM data; `Dataptr_or_null` returns NULL to force element-by-element access.
-- **Tier 1 (pass-through)**: All other R objects (environments, closures, language objects) are returned unchanged by `share()`. No SHM is created.
+- **Zero-copy (SHM-backed)**: All atomic vectors (including character vectors and those with arbitrary attributes such as names, class, levels, dim) and data frame columns are written directly into SHM and backed by ALTREP on consumers. Attributes are serialized into a trailing section of the SHM region and restored via `SET_ATTRIB` on the consumer. For numeric types, `Dataptr_or_null` returns the SHM pointer for reads; `Dataptr(writable=TRUE)` materializes a private copy (COW). For character vectors, `Elt` lazily creates each CHARSXP via `Rf_mkCharLenCE` from the SHM data; `Dataptr_or_null` returns NULL to force element-by-element access.
+- **Pass-through**: All other R objects (environments, closures, language objects) are returned unchanged by `share()`. No SHM is created.
 
 ### share() Dispatch Logic (altrep.c: `sora_create`)
 
 All R exported functions are single `.Call` wrappers. `share()` calls `sora_create` which dispatches on `TYPEOF(x)`:
 
 1. `NILSXP` → returned as-is (falls through all checks).
-2. `VECSXP`/`LISTSXP` → `sora_shm_create_list_call` — ALTLIST with per-element directory. Each element is independently Tier 2 (any atomic, with or without attributes) or Tier 1 (serialized). Data frames and pairlists go through this path (pairlists are coerced to VECSXP via `Rf_coerceVector` at the C level).
+2. `VECSXP`/`LISTSXP` → `sora_shm_create_list_call` — ALTLIST with per-element directory. Each element is independently zero-copy (any atomic, with or without attributes) or serialized as bytes. Data frames and pairlists go through this path (pairlists are coerced to VECSXP via `Rf_coerceVector` at the C level).
 3. `STRSXP` → `sora_shm_create_string_call` — ALTSTRING backed by SHM with offset table + packed string data. Attributes (if any) are serialized after the string data.
-4. Other Tier 2 eligible types (`REALSXP`, `INTSXP`, `LGLSXP`, `RAWSXP`, `CPLXSXP`) → `sora_shm_create_vector_call` — single ALTREP vector backed by SHM. Attributes (if any) are serialized after the vector data.
-5. Everything else → returned as-is (Tier 1 pass-through).
+4. Other SHM-eligible types (`REALSXP`, `INTSXP`, `LGLSXP`, `RAWSXP`, `CPLXSXP`) → `sora_shm_create_vector_call` — single ALTREP vector backed by SHM. Attributes (if any) are serialized after the vector data.
+5. Everything else → returned as-is (pass-through).
 
 Each creation path returns the ALTREP result via `sora_make_result`, which chains the host extptr (responsible for `shm_unlink`) into the ALTREP's external pointer hierarchy. SHM lifetime is thus tied to the R object — when the ALTREP is garbage collected, both munmap and unlink happen automatically.
 
@@ -97,7 +97,7 @@ All attributes (names, dim, class, levels, tzone, etc.) are serialized as a pair
 | varies | | element data (64-byte aligned) |
 | varies | | serialized attributes (names, class, row.names) |
 
-Each element directory entry (32 bytes): `data_offset(8) + data_size(8) + sexptype(4) + attrs_size(4) + length(8)`. `sexptype != 0` means Tier 2 (raw data or string); `sexptype == 0` means Tier 1 (serialized bytes). `sexptype == STRSXP` indicates a string element whose data region contains an offset table + packed strings. When `attrs_size > 0`, the element's serialized attributes are appended after the raw data within the data region (at offset `data_offset + data_size - attrs_size`). On the consumer, `sora_restore_attrs` unserializes and applies them.
+Each element directory entry (32 bytes): `data_offset(8) + data_size(8) + sexptype(4) + attrs_size(4) + length(8)`. `sexptype != 0` means zero-copy (raw data or string); `sexptype == 0` means serialized bytes. `sexptype == STRSXP` indicates a string element whose data region contains an offset table + packed strings. When `attrs_size > 0`, the element's serialized attributes are appended after the raw data within the data region (at offset `data_offset + data_size - attrs_size`). On the consumer, `sora_restore_attrs` unserializes and applies them.
 
 **String vector (SORS):** 24-byte header + offset table + packed string data + optional serialized attributes.
 
@@ -156,10 +156,19 @@ SHM lifetime is fully automatic, managed by chaining the host extptr (responsibl
 
 ## Testing
 
-Uses **minitest**, a minimal framework defined at the top of `tests/tests.R`:
-- `test_true()`, `test_false()`, `test_null()`, `test_equal()`, `test_identical()`, `test_class()`, `test_error()`
+Uses **testthat** (edition 3). The entry point is `tests/testthat.R`; individual tests live in `tests/testthat/test-*.R`, grouped by topic:
 
-All tests run sequentially in a single file. Integration tests (with mirai daemons) are gated behind `NOT_CRAN=true`.
+- `test-passthrough.R` — pass-through (formulas, NULL, closures/environments inside lists)
+- `test-vectors.R` — atomic vector round-trip (double, integer, logical, raw, complex, matrix, empty)
+- `test-strings.R` — ALTSTRING behaviour (basic, NA, empty, UTF-8, large, data frame column, list element, `Dataptr` materialization via `make.unique`/`duplicated`)
+- `test-list.R` — ALTLIST (data frames, mixed lists, NULL elements, duplicate, pairlist)
+- `test-attributes.R` — attribute preservation (names, factor, Date, POSIXct, matrix)
+- `test-cow.R` — copy-on-write for numeric and string vectors, `Dataptr_or_null` on materialized vec
+- `test-serialization.R` — ALTREP `Serialized_state`/`Unserialize` hooks (standalone, element, compact size, COW fallback, attributes)
+- `test-gc.R` — automatic SHM cleanup by garbage collector
+- `test-api.R` — `share()`/`map_shared()`/`shared_name()`/`is_shared()` behaviour including invalid inputs
+
+Integration tests (with mirai daemons) are gated behind `NOT_CRAN=true`.
 
 ## Platform Notes
 

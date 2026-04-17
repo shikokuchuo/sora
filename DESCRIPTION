@@ -20,7 +20,9 @@ Depends:
     R (>= 4.3.0)
 Suggests:
     lobstr,
-    mirai
+    mirai,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
 Encoding: UTF-8
 NeedsCompilation: yes
 Roxygen: list(markdown = TRUE)

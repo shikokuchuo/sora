@@ -22,9 +22,9 @@ typedef struct {
   int64_t length;
 } sora_elem;
 
-// Tier 2 eligibility: any atomic vector (attributes stored separately) --------
+// Zero-copy eligibility: any atomic vector (attributes stored separately) ----
 
-static int sora_tier2_eligible(int type) {
+static int sora_shm_eligible(int type) {
   return type == REALSXP || type == INTSXP || type == LGLSXP ||
          type == RAWSXP || type == CPLXSXP || type == STRSXP;
 }
@@ -419,7 +419,7 @@ static SEXP sora_make_result(sora_shm *shm) {
     R_SetExternalPtrProtected(
       R_ExternalPtrProtected(R_altrep_data1(result)), host_ptr);
   } else {
-    /* Tier 1 fallback: unlink immediately */
+    /* Unknown magic: deserialize as raw bytes and release SHM immediately */
     result = PROTECT(sora_unserialize_from(base, shm->size));
     sora_shm_close(shm, 0);
     sora_host_finalizer(host_ptr);
@@ -481,7 +481,7 @@ static size_t sora_string_data_size(SEXP x) {
 
 // .Call entry points: host-side SHM creation ---------------------------------
 
-/* Tier 2: list/data frame to SHM */
+/* Zero-copy: list/data frame to SHM */
 static SEXP sora_shm_create_list_call(SEXP x) {
 
   /* Coerce pairlists to VECSXP so VECTOR_ELT/XLENGTH work uniformly */
@@ -502,7 +502,7 @@ static SEXP sora_shm_create_list_call(SEXP x) {
     SEXP elt = VECTOR_ELT(x, i);
     int type = TYPEOF(elt);
 
-    if (sora_tier2_eligible(type)) {
+    if (sora_shm_eligible(type)) {
       elems[i].sexptype = type;
       elems[i].length = (int64_t) XLENGTH(elt);
 
@@ -596,7 +596,7 @@ static SEXP sora_shm_create_list_call(SEXP x) {
   return sora_make_result(&shm);
 }
 
-/* Tier 2: atomic vector → 64-byte header + data (64-byte aligned) + attrs */
+/* Zero-copy: atomic vector → 64-byte header + data (64-byte aligned) + attrs */
 static SEXP sora_shm_create_vector_call(SEXP x) {
 
   int type = TYPEOF(x);
@@ -634,7 +634,7 @@ static SEXP sora_shm_create_vector_call(SEXP x) {
   return sora_make_result(&shm);
 }
 
-/* Tier 2: character vector → 24-byte header + offset table + strings + attrs */
+/* Zero-copy: character vector → 24-byte header + offset table + strings + attrs */
 static SEXP sora_shm_create_string_call(SEXP x) {
 
   R_xlen_t n = XLENGTH(x);
@@ -678,7 +678,7 @@ SEXP sora_create(SEXP x) {
     return sora_shm_create_list_call(x);
   if (type == STRSXP)
     return sora_shm_create_string_call(x);
-  if (sora_tier2_eligible(type))
+  if (sora_shm_eligible(type))
     return sora_shm_create_vector_call(x);
   return x;
 }
