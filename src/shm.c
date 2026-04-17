@@ -2,9 +2,7 @@
 #include <stdio.h>
 #include "sora.h"
 
-/* ================================================================
-   Platform-specific SHM implementations
-   ================================================================ */
+// Platform-specific SHM implementations --------------------------------------
 
 #ifdef _WIN32
 
@@ -89,11 +87,8 @@ void sora_shm_close(sora_shm *shm, int unlink) {
 #define MAP_POPULATE 0
 #endif
 
-/*
- * On Linux, shm_open/shm_unlink live in librt (-lrt). Avoid the link
- * dependency by going through /dev/shm directly — they are equivalent.
- * On macOS, shm_open/shm_unlink are in libc so we use them directly.
- */
+/* Linux: go through /dev/shm directly to avoid the -lrt link dependency
+   that shm_open/shm_unlink would introduce. macOS has them in libc. */
 
 #ifdef __linux__
 
@@ -209,9 +204,7 @@ void sora_shm_close(sora_shm *shm, int unlink) {
 
 #endif /* _WIN32 */
 
-/* ================================================================
-   Platform-independent finalizers
-   ================================================================ */
+// Platform-independent finalizers --------------------------------------------
 
 /* Daemon-side finalizer: unmap only, don't unlink (host manages lifetime) */
 void sora_shm_finalizer(SEXP ptr) {
@@ -223,7 +216,7 @@ void sora_shm_finalizer(SEXP ptr) {
   }
 }
 
-/* Host-side finalizer: unlink POSIX name or close Windows handle */
+/* Host-side finalizer: releases the SHM name/handle */
 void sora_host_finalizer(SEXP ptr) {
   sora_shm *shm = (sora_shm *) R_ExternalPtrAddr(ptr);
   if (shm) {

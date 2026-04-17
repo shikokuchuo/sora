@@ -1,8 +1,6 @@
 #include "sora.h"
 
-/* ================================================================
-   Counting pass: compute exact serialized size
-   ================================================================ */
+// Counting pass: compute exact serialized size -------------------------------
 
 static void sora_count_bytes(R_outpstream_t stream, void *src, int len) {
   sora_buf *buf = (sora_buf *) stream->data;
@@ -21,10 +19,8 @@ size_t sora_serialize_count(SEXP object) {
   return buf.cur;
 }
 
-/* ================================================================
-   Fixed-buffer write: no realloc, no bounds check.
-   Safe because the counting pass guarantees exact size.
-   ================================================================ */
+// Fixed-buffer write: no realloc, no bounds check ----------------------------
+// Safe because the counting pass guarantees exact size.
 
 static void sora_write_fixed(R_outpstream_t stream, void *src, int len) {
   sora_buf *buf = (sora_buf *) stream->data;
@@ -42,9 +38,7 @@ void sora_serialize_into(unsigned char *dst, size_t size, SEXP object) {
   R_Serialize(object, &out);
 }
 
-/* ================================================================
-   Read callbacks for unserialize-from-buffer
-   ================================================================ */
+// Read callbacks for unserialize-from-buffer ---------------------------------
 
 static int sora_read_char(R_inpstream_t stream) {
   sora_buf *buf = (sora_buf *) stream->data;
@@ -71,17 +65,3 @@ SEXP sora_unserialize_from(unsigned char *src, size_t size) {
   return R_Unserialize(&in);
 }
 
-/* ================================================================
-   Element size for atomic types
-   ================================================================ */
-
-size_t sora_sizeof_elt(int type) {
-  switch (type) {
-  case REALSXP:  return sizeof(double);
-  case INTSXP:   return sizeof(int);
-  case LGLSXP:   return sizeof(int);
-  case RAWSXP:   return 1;
-  case CPLXSXP:  return sizeof(Rcomplex);
-  default:       return 0;
-  }
-}

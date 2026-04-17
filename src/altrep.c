@@ -1,9 +1,7 @@
 #include <stdlib.h>
 #include "sora.h"
 
-/* ================================================================
-   Global ALTREP class handles and sentinel
-   ================================================================ */
+// Global ALTREP class handles and sentinel ------------------------------------
 
 static R_altrep_class_t sora_list_class;
 static R_altrep_class_t sora_real_class;
@@ -14,9 +12,7 @@ static R_altrep_class_t sora_complex_class;
 static R_altrep_class_t sora_string_class;
 static SEXP sora_tag;
 
-/* ================================================================
-   Element directory (for list SHM layout)
-   ================================================================ */
+// Element directory (for list SHM layout) -------------------------------------
 
 typedef struct {
   int64_t data_offset;
@@ -26,18 +22,14 @@ typedef struct {
   int64_t length;
 } sora_elem;
 
-/* ================================================================
-   Tier 2 eligibility: any atomic vector (attributes stored separately)
-   ================================================================ */
+// Tier 2 eligibility: any atomic vector (attributes stored separately) --------
 
 static int sora_tier2_eligible(int type) {
   return type == REALSXP || type == INTSXP || type == LGLSXP ||
          type == RAWSXP || type == CPLXSXP || type == STRSXP;
 }
 
-/* ================================================================
-   Type-dispatched data pointer (avoids non-API DATAPTR)
-   ================================================================ */
+// Type-dispatched data pointer (avoids non-API DATAPTR) -----------------------
 
 static inline void *sora_data_ptr(SEXP x) {
   switch (TYPEOF(x)) {
@@ -50,14 +42,10 @@ static inline void *sora_data_ptr(SEXP x) {
   }
 }
 
-/* ================================================================
-   Attribute helpers for API compliance
-   ================================================================ */
+// Attribute helpers for API compliance ----------------------------------------
 
-/* Get all attributes as a serializable SEXP.
-   On R >= 4.6.0 returns a named list (from R_getAttributes);
-   on older R returns the attribute pairlist (from ATTRIB).
-   Returns R_NilValue if no attributes. Caller must PROTECT. */
+/* Named list on R >= 4.6.0, pairlist otherwise. R_NilValue if none.
+   Caller must PROTECT. */
 static inline SEXP sora_get_attrs_for_serialize(SEXP x) {
 #if R_VERSION >= R_Version(4, 6, 0)
   return ANY_ATTRIB(x) ? R_getAttributes(x) : R_NilValue;
@@ -66,9 +54,7 @@ static inline SEXP sora_get_attrs_for_serialize(SEXP x) {
 #endif
 }
 
-/* Set all attributes from an unserialized SEXP.
-   Handles both named list (R >= 4.6.0) and pairlist (older R) formats.
-   Sets class last to avoid validation ordering issues. */
+/* Sets class last to avoid validation ordering issues. */
 static void sora_set_attrs_from(SEXP result, SEXP attrs) {
 #if R_VERSION >= R_Version(4, 6, 0)
   SEXP names = Rf_getAttrib(attrs, R_NamesSymbol);
@@ -87,16 +73,13 @@ static void sora_set_attrs_from(SEXP result, SEXP attrs) {
 #endif
 }
 
-/* Restore attributes from a serialized buffer in SHM */
 static void sora_restore_attrs(SEXP result, unsigned char *buf, size_t size) {
   SEXP attrs = PROTECT(sora_unserialize_from(buf, size));
   sora_set_attrs_from(result, attrs);
   UNPROTECT(1);
 }
 
-/* ================================================================
-   SHM name validation for unserialize dispatch
-   ================================================================ */
+// SHM name validation for unserialize dispatch --------------------------------
 
 static int sora_is_shm_name(const char *s) {
 #ifdef _WIN32
@@ -106,9 +89,7 @@ static int sora_is_shm_name(const char *s) {
 #endif
 }
 
-/* ================================================================
-   Vec finalizer: frees the sora_vec struct only
-   ================================================================ */
+// Vec finalizer: frees the sora_vec struct only -------------------------------
 
 static void sora_vec_finalizer(SEXP ptr) {
   void *v = R_ExternalPtrAddr(ptr);
@@ -118,9 +99,7 @@ static void sora_vec_finalizer(SEXP ptr) {
   }
 }
 
-/* ================================================================
-   ALTREP atomic vector methods (shared by all 5 types)
-   ================================================================ */
+// ALTREP atomic vector methods (shared by all 5 types) ------------------------
 
 /*
  * Layout:
@@ -165,8 +144,7 @@ static void *sora_vec_Dataptr(SEXP x, Rboolean writable) {
   return sora_data_ptr(mat);
 }
 
-/* Create an ALTREP atomic vector backed by SHM data.
-   keeper: an SEXP that must be kept alive (parent SHM extptr). */
+/* keeper: SEXP kept alive via the extptr's protected slot (parent SHM). */
 static SEXP sora_make_vector(const void *data, R_xlen_t length,
                              int sexptype, SEXP keeper) {
 
@@ -197,9 +175,7 @@ static SEXP sora_make_vector(const void *data, R_xlen_t length,
   return result;
 }
 
-/* ================================================================
-   ALTSTRING methods
-   ================================================================ */
+// ALTSTRING methods -----------------------------------------------------------
 
 /*
  * String entry in offset table (16 bytes per string):
@@ -279,10 +255,8 @@ static SEXP sora_string_Duplicate(SEXP x, Rboolean deep) {
   return result;
 }
 
-/* Create an ALTREP string vector backed by SHM data.
-   region_base: points to the offset table.
-   n: number of strings.
-   keeper: an SEXP that must be kept alive (parent SHM extptr). */
+/* region_base: points to the offset table.
+   keeper: SEXP kept alive via the extptr's protected slot (parent SHM). */
 static SEXP sora_make_string(const unsigned char *region_base,
                              R_xlen_t n, SEXP keeper) {
 
@@ -303,9 +277,7 @@ static SEXP sora_make_string(const unsigned char *region_base,
   return result;
 }
 
-/* ================================================================
-   Element extraction helper (shared by list Elt and open_element)
-   ================================================================ */
+// Element extraction helper (shared by list Elt and open_element) -------------
 
 static SEXP sora_unwrap_element(unsigned char *base, int32_t index,
                                 SEXP shm_ptr) {
@@ -345,9 +317,7 @@ static SEXP sora_unwrap_element(unsigned char *base, int32_t index,
   return result;
 }
 
-/* ================================================================
-   ALTLIST methods
-   ================================================================ */
+// ALTLIST methods -------------------------------------------------------------
 
 /*
  * Layout:
@@ -407,15 +377,11 @@ static SEXP sora_list_Duplicate(SEXP x, Rboolean deep) {
   return result;
 }
 
-/* Forward declarations for sora_make_result dispatch */
 static SEXP sora_open_list(sora_shm *shm_stack);
 static SEXP sora_open_vector(sora_shm *shm_stack);
 static SEXP sora_open_string(sora_shm *shm_stack);
 
-/* ================================================================
-   Host-side result helper: chains host extptr into ALTREP for
-   automatic GC-based SHM cleanup
-   ================================================================ */
+// Host-side result helper: GC-chained SHM cleanup -----------------------------
 
 static SEXP sora_make_result(sora_shm *shm) {
 
@@ -463,12 +429,9 @@ static SEXP sora_make_result(sora_shm *shm) {
   return result;
 }
 
-/* ================================================================
-   String write helper (shared by standalone and list paths)
-   ================================================================ */
+// String write helper (shared by standalone and list paths) -------------------
 
-/* Write offset table + packed string data into dest.
-   Returns total bytes written including alignment padding. */
+/* Returns total bytes written (including alignment padding). */
 static size_t sora_write_strings(unsigned char *dest, SEXP x) {
   R_xlen_t n = XLENGTH(x);
   size_t table_size = 16 * (size_t) n;
@@ -504,7 +467,6 @@ static size_t sora_write_strings(unsigned char *dest, SEXP x) {
   return data_start + cur;
 }
 
-/* Compute the total byte size for string data (table + packed strings) */
 static size_t sora_string_data_size(SEXP x) {
   R_xlen_t n = XLENGTH(x);
   size_t table_size = 16 * (size_t) n;
@@ -517,9 +479,7 @@ static size_t sora_string_data_size(SEXP x) {
   return SORA_ALIGN64(table_size) + str_bytes;
 }
 
-/* ================================================================
-   .Call entry points: host-side SHM creation
-   ================================================================ */
+// .Call entry points: host-side SHM creation ---------------------------------
 
 /* Tier 2: list/data frame to SHM */
 static SEXP sora_shm_create_list_call(SEXP x) {
@@ -636,10 +596,7 @@ static SEXP sora_shm_create_list_call(SEXP x) {
   return sora_make_result(&shm);
 }
 
-/* Tier 2: atomic vector to SHM
- * Header: 64 bytes (magic, sexptype, length, attrs_size, reserved)
- * Data starts at byte 64 (64-byte aligned for SIMD)
- * Serialized attributes follow the vector data */
+/* Tier 2: atomic vector → 64-byte header + data (64-byte aligned) + attrs */
 static SEXP sora_shm_create_vector_call(SEXP x) {
 
   int type = TYPEOF(x);
@@ -668,10 +625,8 @@ static SEXP sora_shm_create_vector_call(SEXP x) {
   memcpy(base + 8, &length, 8);
   memcpy(base + 16, &as64, 8);
 
-  /* Copy vector data */
   memcpy(base + 64, DATAPTR_RO(x), data_size);
 
-  /* Serialize attributes after data */
   if (attrs_size > 0)
     sora_serialize_into(base + 64 + data_size, attrs_size, attrs);
 
@@ -679,10 +634,7 @@ static SEXP sora_shm_create_vector_call(SEXP x) {
   return sora_make_result(&shm);
 }
 
-/* Tier 2: character vector to SHM
- * Header: 24 bytes (magic, attrs_size, n_strings, str_data_size)
- * Offset table + packed string data follows header
- * Serialized attributes follow the string data */
+/* Tier 2: character vector → 24-byte header + offset table + strings + attrs */
 static SEXP sora_shm_create_string_call(SEXP x) {
 
   R_xlen_t n = XLENGTH(x);
@@ -710,10 +662,8 @@ static SEXP sora_shm_create_string_call(SEXP x) {
   memcpy(base + 8, &n64, 8);
   memcpy(base + 16, &sd, 8);
 
-  /* Write offset table + string data */
   sora_write_strings(base + header_size, x);
 
-  /* Serialize attributes after string data */
   if (attrs_size > 0)
     sora_serialize_into(base + header_size + str_size, attrs_size, attrs);
 
@@ -733,9 +683,7 @@ SEXP sora_create(SEXP x) {
   return x;
 }
 
-/* ================================================================
-   .Call entry points: daemon-side SHM open and wrap
-   ================================================================ */
+// .Call entry points: daemon-side SHM open and wrap --------------------------
 
 /* Open SHM and create ALTLIST wrapper */
 static SEXP sora_open_list(sora_shm *shm_stack) {
@@ -754,15 +702,13 @@ static SEXP sora_open_list(sora_shm *shm_stack) {
   memcpy(&attrs_offset, base + 8, 8);
   memcpy(&attrs_size, base + 16, 8);
 
-  /* Create cache filled with sentinel */
+  /* Cache filled with sentinel (sora_tag means "not yet accessed") */
   SEXP cache = PROTECT(Rf_allocVector(VECSXP, (R_xlen_t) n));
   for (int32_t i = 0; i < n; i++)
     SET_VECTOR_ELT(cache, i, sora_tag);
 
-  /* Create ALTLIST */
   SEXP result = PROTECT(R_new_altrep(sora_list_class, shm_ptr, cache));
 
-  /* Unserialize and set attributes */
   if (attrs_size > 0)
     sora_restore_attrs(result, base + (size_t) attrs_offset,
                        (size_t) attrs_size);
@@ -872,7 +818,6 @@ SEXP sora_shm_open_and_wrap(SEXP name) {
   Rf_error("sora: invalid or corrupted shared memory region: '%s'", nm);
 }
 
-/* Test whether an object is a shared ALTREP */
 SEXP sora_is_shared(SEXP x) {
   if (ALTREP(x)) {
     SEXP d1 = R_altrep_data1(x);
@@ -890,7 +835,6 @@ SEXP sora_is_shared(SEXP x) {
   return Rf_ScalarLogical(0);
 }
 
-/* Extract SHM name from ALTREP object or pass through name string */
 SEXP sora_shm_name(SEXP x) {
   if (ALTREP(x)) {
     SEXP d1 = R_altrep_data1(x);
@@ -909,9 +853,7 @@ SEXP sora_shm_name(SEXP x) {
   return R_BlankScalarString;
 }
 
-/* ================================================================
-   ALTREP serialization hooks
-   ================================================================ */
+// ALTREP serialization hooks --------------------------------------------------
 
 static SEXP sora_vec_Serialized_state(SEXP x) {
   SEXP data1 = R_altrep_data1(x);
@@ -1063,9 +1005,7 @@ static SEXP sora_Unserialize(SEXP class_info, SEXP state) {
   return state;
 }
 
-/* ================================================================
-   ALTREP class registration
-   ================================================================ */
+// ALTREP class registration ---------------------------------------------------
 
 void sora_altrep_init(DllInfo *dll) {
 
