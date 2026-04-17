@@ -26,7 +26,7 @@ corrupted, an error is raised.
 
 ## See also
 
-[`sora()`](https://shikokuchuo.net/sora/reference/sora.md) to create a
+[`share()`](https://shikokuchuo.net/sora/reference/share.md) to create a
 shared object,
 [`shared_name()`](https://shikokuchuo.net/sora/reference/shared_name.md)
 to extract the name.
@@ -34,7 +34,7 @@ to extract the name.
 ## Examples
 
 ``` r
-x <- sora(1:100)
+x <- share(1:100)
 nm <- shared_name(x)
 y <- map_shared(nm)
 sum(y)

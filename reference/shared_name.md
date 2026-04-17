@@ -16,7 +16,7 @@ shared_name(x)
 - x:
 
   a shared object as returned by
-  [`sora()`](https://shikokuchuo.net/sora/reference/sora.md) or
+  [`share()`](https://shikokuchuo.net/sora/reference/share.md) or
   [`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md).
 
 ## Value
@@ -32,7 +32,7 @@ to open a shared region by name.
 ## Examples
 
 ``` r
-x <- sora(rnorm(100))
+x <- share(rnorm(100))
 shared_name(x)
-#> [1] "/sora_19ee_2"
+#> [1] "/sora_19a1_3"
 ```

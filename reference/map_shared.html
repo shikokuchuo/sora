@@ -38,7 +38,7 @@ ALTREP-backed R object that reads directly from shared memory."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Open Shared Memory by Name</h1>
-      <small class="dont-index">Source: <a href="https://github.com/shikokuchuo/sora/blob/main/R/sora.R" class="external-link"><code>R/sora.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/shikokuchuo/sora/blob/main/R/share.R" class="external-link"><code>R/share.R</code></a></small>
       <div class="d-none name"><code>map_shared.Rd</code></div>
     </div>
 
@@ -70,13 +70,13 @@ region is absent or corrupted, an error is raised.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="sora.html">sora()</a></code> to create a shared object, <code><a href="shared_name.html">shared_name()</a></code> to
+    <div class="dont-index"><p><code><a href="share.html">share()</a></code> to create a shared object, <code><a href="shared_name.html">shared_name()</a></code> to
 extract the name.</p></div>
     </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="sora.html">sora</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">100</span><span class="op">)</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="share.html">share</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">100</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">nm</span> <span class="op">&lt;-</span> <span class="fu"><a href="shared_name.html">shared_name</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu">map_shared</span><span class="op">(</span><span class="va">nm</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">y</span><span class="op">)</span></span></span>

@@ -44,7 +44,7 @@
 <p>This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.</p>
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a></h2>
-<p>sora — Shared Objects for R Applications. Uses POSIX shared memory (Linux, macOS) and Win32 file mappings (Windows) with R’s ALTREP framework to let multiple processes on the same machine read the same physical memory pages. No external dependencies. Requires R &gt;= 4.3.0 (for ALTLIST). API: <code><a href="reference/sora.html">sora()</a></code> → ALTREP shared object, <code><a href="reference/map_shared.html">map_shared()</a></code> → open SHM by name, <code><a href="reference/shared_name.html">shared_name()</a></code> → extract SHM name, <code><a href="reference/is_shared.html">is_shared()</a></code> → test if shared. SHM lifetime is automatic — managed by R’s garbage collector via chained external pointer finalizers. ALTREP serialization hooks serialize standalone shared objects as the SHM name (~30 bytes) and ALTLIST element vectors as <code>(parent_name, index)</code>, enabling transparent use with mirai and any R serialization path.</p>
+<p>sora — Shared Objects for R Applications. Uses POSIX shared memory (Linux, macOS) and Win32 file mappings (Windows) with R’s ALTREP framework to let multiple processes on the same machine read the same physical memory pages. No external dependencies. Requires R &gt;= 4.3.0 (for ALTLIST). API: <code><a href="reference/share.html">share()</a></code> → ALTREP shared object, <code><a href="reference/map_shared.html">map_shared()</a></code> → open SHM by name, <code><a href="reference/shared_name.html">shared_name()</a></code> → extract SHM name, <code><a href="reference/is_shared.html">is_shared()</a></code> → test if shared. SHM lifetime is automatic — managed by R’s garbage collector via chained external pointer finalizers. ALTREP serialization hooks serialize standalone shared objects as the SHM name (~30 bytes) and ALTLIST element vectors as <code>(parent_name, index)</code>, enabling transparent use with mirai and any R serialization path.</p>
 </div>
 <div class="section level2">
 <h2 id="development-commands">Development Commands<a class="anchor" aria-label="anchor" href="#development-commands"></a></h2>
@@ -74,11 +74,11 @@
 <ul><li>
 <strong>Tier 2 (zero-copy)</strong>: All atomic vectors (including character vectors and those with arbitrary attributes such as names, class, levels, dim) and data frame columns are written directly into SHM and backed by ALTREP on consumers. Attributes are serialized into a trailing section of the SHM region and restored via <code>SET_ATTRIB</code> on the consumer. For numeric types, <code>Dataptr_or_null</code> returns the SHM pointer for reads; <code>Dataptr(writable=TRUE)</code> materializes a private copy (COW). For character vectors, <code>Elt</code> lazily creates each CHARSXP via <code>Rf_mkCharLenCE</code> from the SHM data; <code>Dataptr_or_null</code> returns NULL to force element-by-element access.</li>
 <li>
-<strong>Tier 1 (pass-through)</strong>: All other R objects (environments, closures, language objects) are returned unchanged by <code><a href="reference/sora.html">sora()</a></code>. No SHM is created.</li>
+<strong>Tier 1 (pass-through)</strong>: All other R objects (environments, closures, language objects) are returned unchanged by <code><a href="reference/share.html">share()</a></code>. No SHM is created.</li>
 </ul></div>
 <div class="section level3">
-<h3 id="sora-dispatch-logic-altrepc-sora_create">sora() Dispatch Logic (altrep.c: <code>sora_create</code>)<a class="anchor" aria-label="anchor" href="#sora-dispatch-logic-altrepc-sora_create"></a></h3>
-<p>All R exported functions are single <code>.Call</code> wrappers. <code><a href="reference/sora.html">sora()</a></code> calls <code>sora_create</code> which dispatches on <code>TYPEOF(x)</code>:</p>
+<h3 id="share-dispatch-logic-altrepc-sora_create">share() Dispatch Logic (altrep.c: <code>sora_create</code>)<a class="anchor" aria-label="anchor" href="#share-dispatch-logic-altrepc-sora_create"></a></h3>
+<p>All R exported functions are single <code>.Call</code> wrappers. <code><a href="reference/share.html">share()</a></code> calls <code>sora_create</code> which dispatches on <code>TYPEOF(x)</code>:</p>
 <ol style="list-style-type: decimal"><li>
 <code>NILSXP</code> → returned as-is (falls through all checks).</li>
 <li>
@@ -93,7 +93,7 @@
 <h3 id="altrep-serialization-hooks">ALTREP Serialization Hooks<a class="anchor" aria-label="anchor" href="#altrep-serialization-hooks"></a></h3>
 <p>All ALTREP classes register <code>Serialized_state</code> and <code>Unserialize</code> methods.</p>
 <ul><li>
-<strong>Standalone shared objects</strong> (created by <code><a href="reference/sora.html">sora()</a></code> or <code><a href="reference/map_shared.html">map_shared()</a></code>) serialize as just the SHM name string (~30 bytes). On unserialize, <code>sora_Unserialize</code> validates the name via <code>sora_is_shm_name()</code> (checks <code>/sora_</code> prefix on POSIX, <code>Local\sora_</code> on Windows), then <code>sora_shm_open_and_wrap</code> opens the SHM and creates a fresh ALTREP wrapper. R’s ALTREP serialization framework separately serializes and restores the object’s attributes.</li>
+<strong>Standalone shared objects</strong> (created by <code><a href="reference/share.html">share()</a></code> or <code><a href="reference/map_shared.html">map_shared()</a></code>) serialize as just the SHM name string (~30 bytes). On unserialize, <code>sora_Unserialize</code> validates the name via <code>sora_is_shm_name()</code> (checks <code>/sora_</code> prefix on POSIX, <code>Local\sora_</code> on Windows), then <code>sora_shm_open_and_wrap</code> opens the SHM and creates a fresh ALTREP wrapper. R’s ALTREP serialization framework separately serializes and restores the object’s attributes.</li>
 <li>
 <strong>Element vectors from ALTLIST</strong> serialize as <code>list(parent_name, index)</code>. On unserialize, <code>sora_Unserialize</code> validates element types (first element is STRSXP, second is INTSXP) before treating as an element reference, then <code>sora_open_element</code> opens the parent SHM and extracts the element by index (including restoring per-element attributes from the directory’s <code>attrs_size</code> field). The element’s <code>sora_vec</code>/<code>sora_str</code> struct stores an <code>index</code> field (int32_t, -1 for standalone, &gt;= 0 for ALTLIST elements).</li>
 </ul><p>Fallback to full materialization when: - COW-materialized vectors (data2 is set) - SHM mapping already closed (extptr cleared)</p>
@@ -252,7 +252,7 @@
 <ul><li>
 <strong>sora-package.R</strong>: Package docs</li>
 <li>
-<strong>sora.R</strong>: All four exported functions are single <code>.Call</code> wrappers — dispatch and error handling are at the C level. <code><a href="reference/sora.html">sora()</a></code> → <code>sora_create</code>, <code><a href="reference/map_shared.html">map_shared()</a></code> → <code>sora_shm_open_and_wrap</code>, <code><a href="reference/shared_name.html">shared_name()</a></code> → <code>sora_shm_name</code>, <code><a href="reference/is_shared.html">is_shared()</a></code> → <code>sora_is_shared</code>.</li>
+<strong>sora.R</strong>: All four exported functions are single <code>.Call</code> wrappers — dispatch and error handling are at the C level. <code><a href="reference/share.html">share()</a></code> → <code>sora_create</code>, <code><a href="reference/map_shared.html">map_shared()</a></code> → <code>sora_shm_open_and_wrap</code>, <code><a href="reference/shared_name.html">shared_name()</a></code> → <code>sora_shm_name</code>, <code><a href="reference/is_shared.html">is_shared()</a></code> → <code>sora_is_shared</code>.</li>
 </ul></div>
 </div>
 <div class="section level2">

@@ -1,7 +1,7 @@
 # Test if an Object is Shared
 
 Returns `TRUE` if `x` is an ALTREP object backed by shared memory
-(created by [`sora()`](https://shikokuchuo.net/sora/reference/sora.md)
+(created by [`share()`](https://shikokuchuo.net/sora/reference/share.md)
 or
 [`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md)),
 `FALSE` otherwise.
@@ -25,7 +25,7 @@ is_shared(x)
 ## Examples
 
 ``` r
-x <- sora(rnorm(100))
+x <- share(rnorm(100))
 is_shared(x)
 #> [1] TRUE
 is_shared(rnorm(100))

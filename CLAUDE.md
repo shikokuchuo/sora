@@ -10,7 +10,7 @@ sora — Shared Objects for R Applications. Uses POSIX shared memory
 framework to let multiple processes on the same machine read the same
 physical memory pages. No external dependencies. Requires R \>= 4.3.0
 (for ALTLIST). API:
-[`sora()`](https://shikokuchuo.net/sora/reference/sora.md) → ALTREP
+[`share()`](https://shikokuchuo.net/sora/reference/share.md) → ALTREP
 shared object,
 [`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md) →
 open SHM by name,
@@ -66,13 +66,13 @@ devtools::document()
   to force element-by-element access.
 - **Tier 1 (pass-through)**: All other R objects (environments,
   closures, language objects) are returned unchanged by
-  [`sora()`](https://shikokuchuo.net/sora/reference/sora.md). No SHM is
-  created.
+  [`share()`](https://shikokuchuo.net/sora/reference/share.md). No SHM
+  is created.
 
-### sora() Dispatch Logic (altrep.c: `sora_create`)
+### share() Dispatch Logic (altrep.c: `sora_create`)
 
 All R exported functions are single `.Call` wrappers.
-[`sora()`](https://shikokuchuo.net/sora/reference/sora.md) calls
+[`share()`](https://shikokuchuo.net/sora/reference/share.md) calls
 `sora_create` which dispatches on `TYPEOF(x)`:
 
 1.  `NILSXP` → returned as-is (falls through all checks).
@@ -102,7 +102,7 @@ All ALTREP classes register `Serialized_state` and `Unserialize`
 methods.
 
 - **Standalone shared objects** (created by
-  [`sora()`](https://shikokuchuo.net/sora/reference/sora.md) or
+  [`share()`](https://shikokuchuo.net/sora/reference/share.md) or
   [`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md))
   serialize as just the SHM name string (~30 bytes). On unserialize,
   `sora_Unserialize` validates the name via `sora_is_shm_name()` (checks
@@ -282,7 +282,7 @@ single `SEXP` argument.
 - **sora-package.R**: Package docs
 - **sora.R**: All four exported functions are single `.Call` wrappers —
   dispatch and error handling are at the C level.
-  [`sora()`](https://shikokuchuo.net/sora/reference/sora.md) →
+  [`share()`](https://shikokuchuo.net/sora/reference/share.md) →
   `sora_create`,
   [`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md)
   → `sora_shm_open_and_wrap`,
