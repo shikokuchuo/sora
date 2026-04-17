@@ -59,7 +59,7 @@ static inline SEXP mori_get_attrs_for_serialize(SEXP x) {
 /* Sets class last to avoid validation ordering issues. */
 static void mori_set_attrs_from(SEXP result, SEXP attrs) {
 #if R_VERSION >= R_Version(4, 6, 0)
-  SEXP names = Rf_getAttrib(attrs, R_NamesSymbol);
+  SEXP names = PROTECT(Rf_getAttrib(attrs, R_NamesSymbol));
   R_xlen_t n = XLENGTH(attrs), class_idx = -1;
   for (R_xlen_t i = 0; i < n; i++) {
     SEXP nm = Rf_installChar(STRING_ELT(names, i));
@@ -68,6 +68,7 @@ static void mori_set_attrs_from(SEXP result, SEXP attrs) {
   }
   if (class_idx >= 0)
     Rf_classgets(result, VECTOR_ELT(attrs, class_idx));
+  UNPROTECT(1);
 #else
   SET_ATTRIB(result, attrs);
   if (Rf_getAttrib(result, R_ClassSymbol) != R_NilValue)
@@ -1158,13 +1159,15 @@ static SEXP mori_open_path(SEXP name, SEXP path_sxp) {
   const int *path = INTEGER(path_sxp);
 
   SEXP keeper = shm_ptr;
-  int nprotect = 1;
   unsigned char *cur_base = base;
   int64_t cur_region_size = (int64_t) shm_stack.size;
   int32_t cur_n;
   memcpy(&cur_n, cur_base + 4, 4);
 
-  /* Walk intermediate VECSXP levels */
+  PROTECT_INDEX child_idx;
+  SEXP child = R_NilValue;
+  PROTECT_WITH_INDEX(child, &child_idx);
+
   for (int k = 0; k < path_len - 1; k++) {
     int idx = path[k];
     if (idx < 0 || idx >= cur_n)
@@ -1183,10 +1186,9 @@ static SEXP mori_open_path(SEXP name, SEXP path_sxp) {
         data_offset + data_size > cur_region_size)
       Rf_error("mori:nested region out of bounds");
 
-    SEXP child = PROTECT(mori_make_list_view(
+    REPROTECT(child = mori_make_list_view(
       cur_base + data_offset, data_size, idx, keeper
-    ));
-    nprotect++;
+    ), child_idx);
     keeper = R_altrep_data1(child);
 
     cur_base = cur_base + data_offset;
@@ -1200,7 +1202,7 @@ static SEXP mori_open_path(SEXP name, SEXP path_sxp) {
 
   SEXP result = mori_unwrap_element(cur_base, cur_region_size,
                                     leaf_idx, keeper);
-  UNPROTECT(nprotect);
+  UNPROTECT(2);
   return result;
 }
 
