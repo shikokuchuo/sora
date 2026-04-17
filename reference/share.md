@@ -46,9 +46,9 @@ shared memory before a consumer process has mapped it.
 
 ## See also
 
-[`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md)
+[`map_shared()`](https://shikokuchuo.net/mori/reference/map_shared.md)
 to open a shared region by name,
-[`shared_name()`](https://shikokuchuo.net/sora/reference/shared_name.md)
+[`shared_name()`](https://shikokuchuo.net/mori/reference/shared_name.md)
 to extract the SHM name.
 
 ## Examples

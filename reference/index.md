@@ -2,14 +2,14 @@
 
 ## All functions
 
-- [`is_shared()`](https://shikokuchuo.net/sora/reference/is_shared.md) :
+- [`is_shared()`](https://shikokuchuo.net/mori/reference/is_shared.md) :
   Test if an Object is Shared
-- [`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md)
+- [`map_shared()`](https://shikokuchuo.net/mori/reference/map_shared.md)
   : Open Shared Memory by Name
-- [`share()`](https://shikokuchuo.net/sora/reference/share.md) : Create
+- [`mori`](https://shikokuchuo.net/mori/reference/mori-package.md)
+  [`mori-package`](https://shikokuchuo.net/mori/reference/mori-package.md)
+  : mori: Shared Memory for R Objects
+- [`share()`](https://shikokuchuo.net/mori/reference/share.md) : Create
   a Shared Object
-- [`shared_name()`](https://shikokuchuo.net/sora/reference/shared_name.md)
+- [`shared_name()`](https://shikokuchuo.net/mori/reference/shared_name.md)
   : Extract Shared Memory Name
-- [`sora`](https://shikokuchuo.net/sora/reference/sora-package.md)
-  [`sora-package`](https://shikokuchuo.net/sora/reference/sora-package.md)
-  : sora: Shared Objects for R Applications

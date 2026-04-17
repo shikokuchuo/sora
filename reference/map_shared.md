@@ -15,20 +15,20 @@ map_shared(name)
 
   a character string name identifying the shared memory region, as
   returned by
-  [`shared_name()`](https://shikokuchuo.net/sora/reference/shared_name.md).
+  [`shared_name()`](https://shikokuchuo.net/mori/reference/shared_name.md).
 
 ## Value
 
 The R object stored in the shared memory region, or `NULL` if `name` is
 not a valid shared memory name (wrong type, length, `NA`, or missing the
-`sora` prefix). If `name` is well-formed but the region is absent or
+`mori` prefix). If `name` is well-formed but the region is absent or
 corrupted, an error is raised.
 
 ## See also
 
-[`share()`](https://shikokuchuo.net/sora/reference/share.md) to create a
+[`share()`](https://shikokuchuo.net/mori/reference/share.md) to create a
 shared object,
-[`shared_name()`](https://shikokuchuo.net/sora/reference/shared_name.md)
+[`shared_name()`](https://shikokuchuo.net/mori/reference/shared_name.md)
 to extract the name.
 
 ## Examples

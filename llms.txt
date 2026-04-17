@@ -1,16 +1,16 @@
-# sora
+# mori
 
 ``` R
   ________
- /\ sora  \
+ /\ mori  \
 /  \       \
-\  /  空   /
+\  /  森   /
  \/_______/
 ```
 
-Shared Objects for R Applications
+Shared Memory for R Objects
 
-→ [`share()`](https://shikokuchuo.net/sora/reference/share.md) writes an
+→ [`share()`](https://shikokuchuo.net/mori/reference/share.md) writes an
 R object into shared memory and returns a shared version
 
 → ALTREP serialization hooks — shared objects serialize compactly and
@@ -33,12 +33,12 @@ garbage collected
 ### Installation
 
 ``` r
-install.packages("sora")
+install.packages("mori")
 ```
 
 ### Quick Start
 
-[`share()`](https://shikokuchuo.net/sora/reference/share.md) writes an R
+[`share()`](https://shikokuchuo.net/mori/reference/share.md) writes an R
 object into shared memory and returns a shared version backed by
 zero-copy ALTREP. Shared objects serialize compactly via ALTREP
 serialization hooks, working transparently with mirai and any R
@@ -46,7 +46,7 @@ serialization path. Shared memory is automatically freed when the object
 is garbage collected.
 
 ``` r
-library(sora)
+library(mori)
 
 # Share a vector — returns an ALTREP-backed object
 x <- share(rnorm(1e6))
@@ -60,9 +60,9 @@ x |> serialize(NULL) |> length()
 
 ### Sharing by Name
 
-[`shared_name()`](https://shikokuchuo.net/sora/reference/shared_name.md)
+[`shared_name()`](https://shikokuchuo.net/mori/reference/shared_name.md)
 extracts the SHM name from a shared object.
-[`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md)
+[`map_shared()`](https://shikokuchuo.net/mori/reference/map_shared.md)
 opens a shared region by name — useful for accessing the same data from
 another process without serialization:
 
@@ -72,7 +72,7 @@ x <- share(1:1e6)
 # Extract the SHM name
 nm <- shared_name(x)
 nm
-#> [1] "/sora_3b45_1"
+#> [1] "/mori_3b45_1"
 
 # Another process can map the same region by name
 y <- map_shared(nm)
@@ -124,14 +124,14 @@ mirai_map(x, \(v) lobstr::obj_size(v) |> format())[.flat]
 daemons(0)
 ```
 
-### Why sora
+### Why mori
 
 Parallel computing multiplies memory. When 8 workers each need the same
 210 MB dataset, that is 1.7 GB of serialization, transfer, and
 deserialization — plus 8 separate copies consuming RAM.
 
-sora eliminates all of it.
-[`share()`](https://shikokuchuo.net/sora/reference/share.md) writes data
+mori eliminates all of it.
+[`share()`](https://shikokuchuo.net/mori/reference/share.md) writes data
 into shared memory once. Each worker maps the same physical pages,
 receiving a reference of ~300 bytes instead of the full dataset — a
 payload ~700,000 times smaller, which translates into a significant
@@ -146,12 +146,12 @@ shared_df <- share(df)
 
 boot_mean <- \(i, data) colMeans(data[sample(nrow(data), replace = TRUE), ])
 
-# Without sora — each daemon deserializes a full copy
+# Without mori — each daemon deserializes a full copy
 mirai_map(1:8, boot_mean, data = df)[] |> system.time()
 #>    user  system elapsed 
 #>   2.062  38.522   5.845
 
-# With sora — each daemon maps the same shared memory
+# With mori — each daemon maps the same shared memory
 mirai_map(1:8, boot_mean, data = shared_df)[] |> system.time()
 #>    user  system elapsed 
 #>   1.342  26.513   3.959
@@ -166,18 +166,18 @@ daemons(0)
 All atomic vector types and lists / data frames are written directly
 into shared memory, with attributes (`class`, `names`, `dim`, `levels`,
 `tzone`, …) preserved end-to-end. Pairlists are coerced to lists.
-[`share()`](https://shikokuchuo.net/sora/reference/share.md) returns
+[`share()`](https://shikokuchuo.net/mori/reference/share.md) returns
 ALTREP wrappers that point into the shared pages — no deserialization,
 no per-process memory allocation.
 
 All other R objects (environments, closures, language objects) are
 returned unchanged by
-[`share()`](https://shikokuchuo.net/sora/reference/share.md) — no shared
+[`share()`](https://shikokuchuo.net/mori/reference/share.md) — no shared
 memory region is created.
 
 ![Diagram showing share() writing an object once into OS-backed shared
 memory, which is then memory-mapped by other processes using zero-copy
-ALTREP wrappers](reference/figures/sora-diagram.svg)
+ALTREP wrappers](reference/figures/mori-diagram.svg)
 
 Diagram showing share() writing an object once into OS-backed shared
 memory, which is then memory-mapped by other processes using zero-copy
@@ -197,7 +197,7 @@ referenced in R. When no references remain, the garbage collector frees
 the shared memory automatically.
 
 **Important:** Always assign the result of
-[`share()`](https://shikokuchuo.net/sora/reference/share.md) to a
+[`share()`](https://shikokuchuo.net/mori/reference/share.md) to a
 variable. The shared memory is kept alive by the R object reference — if
 the result is used as a temporary (not assigned), the garbage collector
 may free the shared memory before a consumer process has mapped it.
@@ -217,23 +217,23 @@ original shared data:
 
 –
 
-Please note that the sora project is released with a [Contributor Code
-of Conduct](https://shikokuchuo.net/sora/CODE_OF_CONDUCT.html). By
+Please note that the mori project is released with a [Contributor Code
+of Conduct](https://shikokuchuo.net/mori/CODE_OF_CONDUCT.html). By
 contributing to this project, you agree to abide by its terms.
 
 # Package index
 
 ## All functions
 
-- [`is_shared()`](https://shikokuchuo.net/sora/reference/is_shared.md) :
+- [`is_shared()`](https://shikokuchuo.net/mori/reference/is_shared.md) :
   Test if an Object is Shared
-- [`map_shared()`](https://shikokuchuo.net/sora/reference/map_shared.md)
+- [`map_shared()`](https://shikokuchuo.net/mori/reference/map_shared.md)
   : Open Shared Memory by Name
-- [`share()`](https://shikokuchuo.net/sora/reference/share.md) : Create
+- [`mori`](https://shikokuchuo.net/mori/reference/mori-package.md)
+  [`mori-package`](https://shikokuchuo.net/mori/reference/mori-package.md)
+  : mori: Shared Memory for R Objects
+- [`share()`](https://shikokuchuo.net/mori/reference/share.md) : Create
   a Shared Object
-- [`shared_name()`](https://shikokuchuo.net/sora/reference/shared_name.md)
+- [`shared_name()`](https://shikokuchuo.net/mori/reference/shared_name.md)
   : Extract Shared Memory Name
-- [`sora`](https://shikokuchuo.net/sora/reference/sora-package.md)
-  [`sora-package`](https://shikokuchuo.net/sora/reference/sora-package.md)
-  : sora: Shared Objects for R Applications
 

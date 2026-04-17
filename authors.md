@@ -11,15 +11,15 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/shikokuchuo/sora/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/shikokuchuo/mori/blob/main/DESCRIPTION)
 
-Gao C (2026). *sora: Shared Objects for R Applications*. R package
-version 0.0.1.9000, <https://shikokuchuo.net/sora/>.
+Gao C (2026). *mori: Shared Memory for R Objects*. R package version
+0.0.1.9000, <https://shikokuchuo.net/mori/>.
 
     @Manual{,
-      title = {sora: Shared Objects for R Applications},
+      title = {mori: Shared Memory for R Objects},
       author = {Charlie Gao},
       year = {2026},
       note = {R package version 0.0.1.9000},
-      url = {https://shikokuchuo.net/sora/},
+      url = {https://shikokuchuo.net/mori/},
     }

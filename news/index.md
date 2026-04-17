@@ -1,11 +1,11 @@
 # Changelog
 
-## sora (development version)
+## mori (development version)
 
-- [`sora()`](https://shikokuchuo.net/sora/reference/sora-package.md) has
-  been renamed to
-  [`share()`](https://shikokuchuo.net/sora/reference/share.md).
+- Package renamed from `sora` to `mori`.
+- `sora()` had been renamed to
+  [`share()`](https://shikokuchuo.net/mori/reference/share.md).
 
-## sora 0.0.1
+## mori 0.0.1
 
 - Initial GitHub release.
