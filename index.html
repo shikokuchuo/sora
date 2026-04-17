@@ -90,7 +90,7 @@
 <span><span class="co"># Share a vector — returns an ALTREP-backed object</span></span>
 <span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/share.html">share</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">1e6</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 0.0005849773</span></span>
+<span><span class="co">#&gt; [1] -0.0001128046</span></span>
 <span></span>
 <span><span class="co"># Serialized form is ~100 bytes, not ~8 MB</span></span>
 <span><span class="va">x</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/serialize.html" class="external-link">serialize</a></span><span class="op">(</span><span class="cn">NULL</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="op">)</span></span>
@@ -106,7 +106,7 @@
 <span><span class="co"># Extract the SHM name</span></span>
 <span><span class="va">nm</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/shared_name.html">shared_name</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span><span class="va">nm</span></span>
-<span><span class="co">#&gt; [1] "/mori_3b45_1"</span></span>
+<span><span class="co">#&gt; [1] "/mori_89bd_1"</span></span>
 <span></span>
 <span><span class="co"># Another process can map the same region by name</span></span>
 <span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/map_shared.html">map_shared</a></span><span class="op">(</span><span class="va">nm</span><span class="op">)</span></span>
@@ -129,10 +129,10 @@
 <span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://mirai.r-lib.org/reference/mirai.html" class="external-link">mirai</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>, size <span class="op">=</span> <span class="fu">lobstr</span><span class="fu">::</span><span class="fu"><a href="https://lobstr.r-lib.org/reference/obj_size.html" class="external-link">obj_size</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span><span class="op">)</span>, x <span class="op">=</span> <span class="va">x</span><span class="op">)</span></span>
 <span><span class="va">m</span><span class="op">[</span><span class="op">]</span></span>
 <span><span class="co">#&gt; $mean</span></span>
-<span><span class="co">#&gt; [1] 0.002518122</span></span>
+<span><span class="co">#&gt; [1] 0.0001543878</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $size</span></span>
-<span><span class="co">#&gt; 792 B</span></span>
+<span><span class="co">#&gt; 840 B</span></span>
 <span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/daemons.html" class="external-link">daemons</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span></code></pre></div>
 <p>Elements of a shared list also serialize compactly — each element travels as a reference to its position in the parent shared region, not as the full data:</p>
@@ -145,7 +145,7 @@
 <span><span class="co"># Each element is sent as (parent_name, index) — zero-copy on the worker</span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/mirai_map.html" class="external-link">mirai_map</a></span><span class="op">(</span><span class="va">x</span>, \<span class="op">(</span><span class="va">v</span><span class="op">)</span> <span class="fu">lobstr</span><span class="fu">::</span><span class="fu"><a href="https://lobstr.r-lib.org/reference/obj_size.html" class="external-link">obj_size</a></span><span class="op">(</span><span class="va">v</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="va">.flat</span><span class="op">]</span></span>
 <span><span class="co">#&gt;       a       b       c </span></span>
-<span><span class="co">#&gt; "728 B" "728 B" "728 B"</span></span>
+<span><span class="co">#&gt; "840 B" "840 B" "840 B"</span></span>
 <span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/daemons.html" class="external-link">daemons</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -166,12 +166,12 @@
 <span><span class="co"># Without mori — each daemon deserializes a full copy</span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/mirai_map.html" class="external-link">mirai_map</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">8</span>, <span class="va">boot_mean</span>, data <span class="op">=</span> <span class="va">df</span><span class="op">)</span><span class="op">[</span><span class="op">]</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    user  system elapsed </span></span>
-<span><span class="co">#&gt;   2.062  38.522   5.845</span></span>
+<span><span class="co">#&gt;   2.041  38.221   5.798</span></span>
 <span></span>
 <span><span class="co"># With mori — each daemon maps the same shared memory</span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/mirai_map.html" class="external-link">mirai_map</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">8</span>, <span class="va">boot_mean</span>, data <span class="op">=</span> <span class="va">shared_df</span><span class="op">)</span><span class="op">[</span><span class="op">]</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    user  system elapsed </span></span>
-<span><span class="co">#&gt;   1.342  26.513   3.959</span></span>
+<span><span class="co">#&gt;   1.330  25.847   3.878</span></span>
 <span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/daemons.html" class="external-link">daemons</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span></code></pre></div>
 </div>

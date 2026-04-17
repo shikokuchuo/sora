@@ -143,7 +143,8 @@ methods.
   time.
 
 Fallback to full materialization when: - COW-materialized vectors (data2
-is set) - SHM mapping already closed (extptr cleared)
+is set) — returns the materialized copy - Nesting depth exceeds
+`MORI_MAX_PATH` (64) in `mori_build_path`
 
 ### SHM Magic Bytes
 
@@ -238,20 +239,30 @@ element’s `data_offset`; element-level attrs use the directory entry’s
 ## Internal State
 
 - **`mori_tag`** (C global, `altrep.c`): Interned symbol
-  `Rf_install("mori")`. Role: ALTLIST cache sentinel only —
-  distinguishes “not yet accessed” from a cached `NULL` element.
+  `Rf_install("mori")`. Role: ALTLIST cache sentinel only (a VECSXP
+  element marker, never an extptr tag) — distinguishes “not yet
+  accessed” from a cached `NULL` element.
 - **`mori_shm_tag`** (C global, `altrep.c`): Interned symbol
-  `Rf_install("mori_shm")`. Tag on every SHM extptr; addr is a
-  `mori_shm *`.
-- **`mori_view_tag`** (C global, `altrep.c`): Interned symbol
-  `Rf_install("mori_view")`. Tag on every list view extptr; addr is a
-  `mori_list_view *`. The two distinct tags disambiguate the extptr’s
-  addr type without inspecting struct internals and let
+  `Rf_install("mori_shm")`. Tag on daemon-side SHM mapping extptrs; addr
+  is a `mori_shm *`; finalizer calls `munmap`.
+- **`mori_host_tag`** (C global, `altrep.c`): Interned symbol
+  `Rf_install("mori_host")`. Tag on host-only unlink extptrs (created by
+  `mori_make_result`); addr is a `mori_shm *`; finalizer calls
+  `shm_unlink`/`CloseHandle`. Sits above the shm terminus in the keeper
+  chain.
+- **`mori_owned_tag`** (C global, `altrep.c`): Interned symbol
+  `Rf_install("mori_owned")`. Tag on every mori ALTREP’s `data1` extptr
+  (view, vec, str — root / sub-list / standalone / element). The addr
+  type is recovered from `TYPEOF(x)` at the ALTREP boundary:
+  `VECSXP → mori_list_view *`, `STRSXP → mori_str *`, else `mori_vec *`.
+  Standalone-vs-element is carried in each struct’s `index` field (`-1`
+  standalone/root, `>= 0` element/sub-list) and redundantly recoverable
+  from the tag on `data1.prot` (`shm_tag → standalone`,
+  `owned_tag → element/sub-list`).
   [`is_shared()`](https://shikokuchuo.net/mori/reference/is_shared.md)
-  and `mori_shm_name` stay O(1).
-  [`is_shared()`](https://shikokuchuo.net/mori/reference/is_shared.md)
-  accepts either tag (list data1 is tagged `view`; vec/str data1’s prot
-  is tagged either `view` for elements or `shm` for standalone).
+  is a single pointer comparison against this tag; `mori_shm_name()`
+  adds one `prot` hop and returns the name only when `prot`’s tag is
+  `shm_tag`.
 
 ### GC and Lifetime
 
@@ -263,9 +274,10 @@ external pointer hierarchy.
   and mmaps it; on POSIX, the fd is closed immediately after mmap (the
   mapping stays valid; the `mori_shm` struct does not retain the fd).
   `mori_make_result` splits ownership: the ALTREP wrapper gets the
-  mapping (`addr`, `size`) via the daemon-side SHM extptr
-  (`mori_shm_finalizer` → munmap), and the host extptr gets the handle
-  (`name` for POSIX unlink, `HANDLE` for Windows) via
+  mapping (`addr`, `size`) via the daemon-side SHM extptr (tag
+  `mori_shm_tag`, finalizer `mori_shm_finalizer` → munmap), and the host
+  extptr gets the handle (tag `mori_host_tag`, addr is a `mori_shm *`
+  holding `name` for POSIX unlink, `HANDLE` for Windows) via
   `mori_host_finalizer`. The host extptr is chained as the protected
   value of the ALTREP’s SHM extptr. When the ALTREP is garbage
   collected, both finalizers run: munmap + unlink.
@@ -275,21 +287,29 @@ external pointer hierarchy.
   POSIX, the fd is closed immediately after mmap. The shm extptr (tag
   `mori_shm_tag`) holds the `mori_shm *` and its `mori_shm_finalizer`
   calls `munmap` (never unlink). For lists, the shm extptr’s immediate
-  child is a root view extptr (tag `mori_view_tag`, addr
+  child is a root view extptr (tag `mori_owned_tag`, addr
   `mori_list_view *`, index=-1) that becomes ALTREP data1; sub-list
   views (index \>= 0) chain through their parent view extptr in the same
   way. ALTLIST element vectors hold a `mori_vec` or `mori_str` extptr
-  whose protected value references the immediate parent view extptr (or
-  the shm extptr, for vec/str at the root of the MORH/MORS regions).
+  (also tagged `mori_owned_tag`) whose protected value references the
+  immediate parent view extptr (or the shm extptr, for vec/str at the
+  root of the MORH/MORS regions). The SHM name is stored only at
+  `shm->name`:
+  [`shared_name()`](https://shikokuchuo.net/mori/reference/shared_name.md)
+  reads it via `data1.prot → shm_ptr.addr->name` when `data1.prot`’s tag
+  is `mori_shm_tag`, and returns `""` otherwise (element / sub-list).
 - **Element lifetime**: Element vectors and sub-lists extracted from an
   ALTLIST keep the root SHM alive through the keeper chain (leaf element
-  → parent view(s) → root shm extptr → host extptr). Even if the
-  enclosing ALTLIST(s) are garbage collected, every
-  `R_MakeExternalPtr(addr, tag, prot)` keeps its `prot` slot alive, so
-  the chain survives as long as any descendant is referenced.
-  `mori_build_path` walks this chain at serialize time, collecting view
-  indices (skipping the root view’s -1) until it reaches the shm extptr
-  and reads the name.
+  → parent view(s) → root shm extptr → host extptr). Every hop in the
+  chain carries one of `mori_owned_tag` (views/vec/str leaves),
+  `mori_shm_tag` (terminus), or `mori_host_tag` (above the terminus,
+  host side only). Even if the enclosing ALTLIST(s) are garbage
+  collected, every `R_MakeExternalPtr(addr, tag, prot)` keeps its `prot`
+  slot alive, so the chain survives as long as any descendant is
+  referenced. `mori_build_path` is the only keeper-chain walker: it
+  walks `mori_owned_tag` hops (always `mori_list_view *` since vec/str
+  extptrs are only ever leaves), collecting view indices (skipping the
+  root view’s -1) until it reaches the shm extptr and reads the name.
 
 ## Code Organization
 
