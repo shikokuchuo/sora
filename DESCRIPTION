@@ -17,7 +17,7 @@ License: MIT + file LICENSE
 URL: https://shikokuchuo.net/mori/, https://github.com/shikokuchuo/mori
 BugReports: https://github.com/shikokuchuo/mori/issues
 Depends:
-    R (>= 4.3.0)
+    R (>= 4.3)
 Suggests:
     lobstr,
     mirai,
