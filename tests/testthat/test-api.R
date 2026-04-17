@@ -67,3 +67,58 @@ test_that("well-formed name for absent region errors", {
   }
   expect_error(map_shared(bogus), "not found")
 })
+
+test_that("is_shared is TRUE across all shared ALTREP kinds (host-side)", {
+  expect_true(is_shared(share(1:10)))
+  expect_true(is_shared(share(letters)))
+  expect_true(is_shared(share(list(a = 1, b = "x"))))
+
+  x <- share(list(list(1)))
+  expect_true(is_shared(x[[1]]))
+
+  y <- share(list(list(a = 1:3)))
+  expect_true(is_shared(y[[1]][["a"]]))
+
+  z <- share(list(list(s = letters)))
+  expect_true(is_shared(z[[1]][["s"]]))
+})
+
+test_that("is_shared is TRUE across all shared ALTREP kinds (consumer-side)", {
+  a <- share(1:10)
+  expect_true(is_shared(map_shared(shared_name(a))))
+
+  s <- share(letters)
+  expect_true(is_shared(map_shared(shared_name(s))))
+
+  L <- share(list(a = 1, b = "x"))
+  expect_true(is_shared(map_shared(shared_name(L))))
+
+  x <- share(list(list(1)))
+  xx <- map_shared(shared_name(x))
+  expect_true(is_shared(xx[[1]]))
+
+  y <- share(list(list(a = 1:3)))
+  yy <- map_shared(shared_name(y))
+  expect_true(is_shared(yy[[1]][["a"]]))
+
+  z <- share(list(list(s = letters)))
+  zz <- map_shared(shared_name(z))
+  expect_true(is_shared(zz[[1]][["s"]]))
+})
+
+test_that("shared_name returns '' for a sub-list", {
+  x <- share(list(list(1)))
+  sub <- x[[1]]
+  expect_true(is_shared(sub))
+  expect_identical(shared_name(sub), "")
+})
+
+test_that("is_shared/shared_name preserved after COW materialization", {
+  x <- share(as.double(1:10))
+  nm <- shared_name(x)
+  expect_gt(nchar(nm), 0L)
+  x[1] <- 99
+  expect_equal(x[1], 99)
+  expect_true(is_shared(x))
+  expect_identical(shared_name(x), nm)
+})
