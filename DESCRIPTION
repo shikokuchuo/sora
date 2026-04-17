@@ -10,9 +10,9 @@ Authors@R: c(
 Description: Share R objects across processes on the same machine via a
     single copy in 'POSIX' shared memory (Linux, macOS) or a 'Win32' file
     mapping (Windows). Every process reads from the same physical pages
-    through the R 'ALTREP' framework, giving lazy, zero-copy access.
-    Shared objects serialize compactly as their shared memory name rather
-    than their full contents.
+    through the R Alternative Representation ('ALTREP') framework, giving
+    lazy, zero-copy access. Shared objects serialize compactly as their
+    shared memory name rather than their full contents.
 License: MIT + file LICENSE
 URL: https://shikokuchuo.net/mori/, https://github.com/shikokuchuo/mori
 BugReports: https://github.com/shikokuchuo/mori/issues
