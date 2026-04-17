@@ -1,21 +1,21 @@
 #include <R_ext/Rdynload.h>
-#include "sora.h"
+#include "mori.h"
 
-SEXP sora_create(SEXP);
-SEXP sora_shm_open_and_wrap(SEXP);
-SEXP sora_is_shared(SEXP);
-SEXP sora_shm_name(SEXP);
+SEXP mori_create(SEXP);
+SEXP mori_shm_open_and_wrap(SEXP);
+SEXP mori_is_shared(SEXP);
+SEXP mori_shm_name(SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
-  {"sora_create",             (DL_FUNC) &sora_create,             1},
-  {"sora_shm_open_and_wrap",  (DL_FUNC) &sora_shm_open_and_wrap,  1},
-  {"sora_is_shared",          (DL_FUNC) &sora_is_shared,          1},
-  {"sora_shm_name",           (DL_FUNC) &sora_shm_name,           1},
+  {"mori_create",             (DL_FUNC) &mori_create,             1},
+  {"mori_shm_open_and_wrap",  (DL_FUNC) &mori_shm_open_and_wrap,  1},
+  {"mori_is_shared",          (DL_FUNC) &mori_is_shared,          1},
+  {"mori_shm_name",           (DL_FUNC) &mori_shm_name,           1},
   {NULL, NULL, 0}
 };
 
-void R_init_sora(DllInfo *dll) {
+void R_init_mori(DllInfo *dll) {
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
-  sora_altrep_init(dll);
+  mori_altrep_init(dll);
 }

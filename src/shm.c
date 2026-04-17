@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "sora.h"
+#include "mori.h"
 
 // Platform-specific SHM implementations --------------------------------------
 
@@ -9,18 +9,18 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-static void sora_shm_name(char *name, size_t size) {
+static void mori_shm_name(char *name, size_t size) {
   static unsigned int counter = 0;
-  snprintf(name, size, "Local\\sora_%lx_%x",
+  snprintf(name, size, "Local\\mori_%lx_%x",
            (unsigned long) GetCurrentProcessId(), counter++);
 }
 
-int sora_shm_create(sora_shm *shm, size_t size) {
+int mori_shm_create(mori_shm *shm, size_t size) {
 
   shm->addr = NULL;
   shm->size = 0;
   shm->handle = NULL;
-  sora_shm_name(shm->name, sizeof(shm->name));
+  mori_shm_name(shm->name, sizeof(shm->name));
 
   DWORD hi = (DWORD) ((uint64_t) size >> 32);
   DWORD lo = (DWORD) (size & 0xFFFFFFFF);
@@ -42,7 +42,7 @@ int sora_shm_create(sora_shm *shm, size_t size) {
   return 0;
 }
 
-int sora_shm_open(sora_shm *shm, const char *name) {
+int mori_shm_open(mori_shm *shm, const char *name) {
 
   shm->addr = NULL;
   shm->size = 0;
@@ -68,7 +68,7 @@ int sora_shm_open(sora_shm *shm, const char *name) {
   return 0;
 }
 
-void sora_shm_close(sora_shm *shm, int unlink) {
+void mori_shm_close(mori_shm *shm, int unlink) {
   (void) unlink;
   if (shm->addr) UnmapViewOfFile(shm->addr);
   if (shm->handle) CloseHandle(shm->handle);
@@ -92,13 +92,13 @@ void sora_shm_close(sora_shm *shm, int unlink) {
 
 #ifdef __linux__
 
-static int sora_shm_os_open(const char *name, int flags, mode_t mode) {
+static int mori_shm_os_open(const char *name, int flags, mode_t mode) {
   char path[64];
   snprintf(path, sizeof(path), "/dev/shm%s", name);
   return open(path, flags, mode);
 }
 
-static int sora_shm_os_unlink(const char *name) {
+static int mori_shm_os_unlink(const char *name) {
   char path[64];
   snprintf(path, sizeof(path), "/dev/shm%s", name);
   return unlink(path);
@@ -106,33 +106,33 @@ static int sora_shm_os_unlink(const char *name) {
 
 #else /* macOS / other POSIX */
 
-static int sora_shm_os_open(const char *name, int flags, mode_t mode) {
+static int mori_shm_os_open(const char *name, int flags, mode_t mode) {
   return shm_open(name, flags, mode);
 }
 
-static int sora_shm_os_unlink(const char *name) {
+static int mori_shm_os_unlink(const char *name) {
   return shm_unlink(name);
 }
 
 #endif
 
-static void sora_shm_name(char *name, size_t size) {
+static void mori_shm_name(char *name, size_t size) {
   static unsigned int counter = 0;
-  snprintf(name, size, "/sora_%x_%x", (unsigned) getpid(), counter++);
+  snprintf(name, size, "/mori_%x_%x", (unsigned) getpid(), counter++);
 }
 
-int sora_shm_create(sora_shm *shm, size_t size) {
+int mori_shm_create(mori_shm *shm, size_t size) {
 
   shm->addr = NULL;
   shm->size = 0;
-  sora_shm_name(shm->name, sizeof(shm->name));
+  mori_shm_name(shm->name, sizeof(shm->name));
 
-  int fd = sora_shm_os_open(shm->name, O_CREAT | O_EXCL | O_RDWR, 0600);
+  int fd = mori_shm_os_open(shm->name, O_CREAT | O_EXCL | O_RDWR, 0600);
   if (fd < 0) return -1;
 
   if (ftruncate(fd, (off_t) size) != 0) {
     close(fd);
-    sora_shm_os_unlink(shm->name);
+    mori_shm_os_unlink(shm->name);
     return -1;
   }
 
@@ -140,7 +140,7 @@ int sora_shm_create(sora_shm *shm, size_t size) {
                      MAP_SHARED | MAP_POPULATE, fd, 0);
   if (addr == MAP_FAILED) {
     close(fd);
-    sora_shm_os_unlink(shm->name);
+    mori_shm_os_unlink(shm->name);
     return -1;
   }
 
@@ -158,14 +158,14 @@ int sora_shm_create(sora_shm *shm, size_t size) {
   return 0;
 }
 
-int sora_shm_open(sora_shm *shm, const char *name) {
+int mori_shm_open(mori_shm *shm, const char *name) {
 
   shm->addr = NULL;
   shm->size = 0;
   strncpy(shm->name, name, sizeof(shm->name) - 1);
   shm->name[sizeof(shm->name) - 1] = '\0';
 
-  int fd = sora_shm_os_open(name, O_RDONLY, 0);
+  int fd = mori_shm_os_open(name, O_RDONLY, 0);
   if (fd < 0) return -1;
 
   struct stat st;
@@ -196,9 +196,9 @@ int sora_shm_open(sora_shm *shm, const char *name) {
   return 0;
 }
 
-void sora_shm_close(sora_shm *shm, int unlink) {
+void mori_shm_close(mori_shm *shm, int unlink) {
   if (shm->addr) munmap(shm->addr, shm->size);
-  if (unlink) sora_shm_os_unlink(shm->name);
+  if (unlink) mori_shm_os_unlink(shm->name);
   shm->addr = NULL;
 }
 
@@ -207,23 +207,23 @@ void sora_shm_close(sora_shm *shm, int unlink) {
 // Platform-independent finalizers --------------------------------------------
 
 /* Daemon-side finalizer: unmap only, don't unlink (host manages lifetime) */
-void sora_shm_finalizer(SEXP ptr) {
-  sora_shm *shm = (sora_shm *) R_ExternalPtrAddr(ptr);
+void mori_shm_finalizer(SEXP ptr) {
+  mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(ptr);
   if (shm) {
-    sora_shm_close(shm, 0);
+    mori_shm_close(shm, 0);
     free(shm);
     R_ClearExternalPtr(ptr);
   }
 }
 
 /* Host-side finalizer: releases the SHM name/handle */
-void sora_host_finalizer(SEXP ptr) {
-  sora_shm *shm = (sora_shm *) R_ExternalPtrAddr(ptr);
+void mori_host_finalizer(SEXP ptr) {
+  mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(ptr);
   if (shm) {
 #ifdef _WIN32
     if (shm->handle) CloseHandle(shm->handle);
 #else
-    if (shm->name[0]) sora_shm_os_unlink(shm->name);
+    if (shm->name[0]) mori_shm_os_unlink(shm->name);
 #endif
     free(shm);
     R_ClearExternalPtr(ptr);

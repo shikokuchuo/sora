@@ -1,24 +1,24 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# sora
+# mori
 
 <!-- badges: start -->
 
 [![Lifecycle:
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-[![R-CMD-check](https://github.com/shikokuchuo/sora/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/shikokuchuo/sora/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/shikokuchuo/mori/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/shikokuchuo/mori/actions/workflows/R-CMD-check.yaml)
 [![Codecov test
-coverage](https://codecov.io/gh/shikokuchuo/sora/graph/badge.svg)](https://app.codecov.io/gh/shikokuchuo/sora)
+coverage](https://codecov.io/gh/shikokuchuo/mori/graph/badge.svg)](https://app.codecov.io/gh/shikokuchuo/mori)
 <!-- badges: end -->
 
       ________
-     /\ sora  \
+     /\ mori  \
     /  \       \
-    \  /  空   /
+    \  /  森   /
      \/_______/
 
-Shared Objects for R Applications
+Shared Memory for R Objects
 
 → `share()` writes an R object into shared memory and returns a shared
 version
@@ -41,7 +41,7 @@ garbage collected
 ### Installation
 
 ``` r
-install.packages("sora")
+install.packages("mori")
 ```
 
 ### Quick Start
@@ -53,7 +53,7 @@ R serialization path. Shared memory is automatically freed when the
 object is garbage collected.
 
 ``` r
-library(sora)
+library(mori)
 
 # Share a vector — returns an ALTREP-backed object
 x <- share(rnorm(1e6))
@@ -77,7 +77,7 @@ x <- share(1:1e6)
 # Extract the SHM name
 nm <- shared_name(x)
 nm
-#> [1] "/sora_3b45_1"
+#> [1] "/mori_3b45_1"
 
 # Another process can map the same region by name
 y <- map_shared(nm)
@@ -129,13 +129,13 @@ mirai_map(x, \(v) lobstr::obj_size(v) |> format())[.flat]
 daemons(0)
 ```
 
-### Why sora
+### Why mori
 
 Parallel computing multiplies memory. When 8 workers each need the same
 210 MB dataset, that is 1.7 GB of serialization, transfer, and
 deserialization — plus 8 separate copies consuming RAM.
 
-sora eliminates all of it. `share()` writes data into shared memory
+mori eliminates all of it. `share()` writes data into shared memory
 once. Each worker maps the same physical pages, receiving a reference of
 ~300 bytes instead of the full dataset — a payload ~700,000 times
 smaller, which translates into a significant saving in total runtime:
@@ -149,12 +149,12 @@ shared_df <- share(df)
 
 boot_mean <- \(i, data) colMeans(data[sample(nrow(data), replace = TRUE), ])
 
-# Without sora — each daemon deserializes a full copy
+# Without mori — each daemon deserializes a full copy
 mirai_map(1:8, boot_mean, data = df)[] |> system.time()
 #>    user  system elapsed 
 #>   2.062  38.522   5.845
 
-# With sora — each daemon maps the same shared memory
+# With mori — each daemon maps the same shared memory
 mirai_map(1:8, boot_mean, data = shared_df)[] |> system.time()
 #>    user  system elapsed 
 #>   1.342  26.513   3.959
@@ -176,7 +176,7 @@ All other R objects (environments, closures, language objects) are
 returned unchanged by `share()` — no shared memory region is created.
 
 <figure>
-<img src="man/figures/sora-diagram.svg"
+<img src="man/figures/mori-diagram.svg"
 alt="Diagram showing share() writing an object once into OS-backed shared memory, which is then memory-mapped by other processes using zero-copy ALTREP wrappers" />
 <figcaption aria-hidden="true">Diagram showing share() writing an object
 once into OS-backed shared memory, which is then memory-mapped by other
@@ -216,6 +216,6 @@ original shared data:
 
 –
 
-Please note that the sora project is released with a [Contributor Code
-of Conduct](https://shikokuchuo.net/sora/CODE_OF_CONDUCT.html). By
+Please note that the mori project is released with a [Contributor Code
+of Conduct](https://shikokuchuo.net/mori/CODE_OF_CONDUCT.html). By
 contributing to this project, you agree to abide by its terms.

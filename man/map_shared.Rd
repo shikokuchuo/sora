@@ -13,7 +13,7 @@ region, as returned by \code{\link[=shared_name]{shared_name()}}.}
 \value{
 The R object stored in the shared memory region, or \code{NULL} if
 \code{name} is not a valid shared memory name (wrong type, length, \code{NA},
-or missing the \code{sora} prefix). If \code{name} is well-formed but the
+or missing the \code{mori} prefix). If \code{name} is well-formed but the
 region is absent or corrupted, an error is raised.
 }
 \description{

@@ -61,9 +61,9 @@ test_that("map_shared composes with shared_name sentinel without tryCatch", {
 
 test_that("well-formed name for absent region errors", {
   bogus <- if (.Platform$OS.type == "windows") {
-    "Local\\sora_nonexistent_xyz"
+    "Local\\mori_nonexistent_xyz"
   } else {
-    "/sora_nonexistent_xyz"
+    "/mori_nonexistent_xyz"
   }
   expect_error(map_shared(bogus), "not found")
 })

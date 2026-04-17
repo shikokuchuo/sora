@@ -1,4 +1,4 @@
 library(testthat)
-library(sora)
+library(mori)
 
-test_check("sora")
+test_check("mori")

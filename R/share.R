@@ -39,7 +39,7 @@
 #'   [shared_name()] to extract the SHM name.
 #'
 #' @export
-share <- function(x) .Call(sora_create, x)
+share <- function(x) .Call(mori_create, x)
 
 #' Open Shared Memory by Name
 #'
@@ -51,7 +51,7 @@ share <- function(x) .Call(sora_create, x)
 #'
 #' @return The R object stored in the shared memory region, or `NULL` if
 #'   `name` is not a valid shared memory name (wrong type, length, `NA`,
-#'   or missing the `sora` prefix). If `name` is well-formed but the
+#'   or missing the `mori` prefix). If `name` is well-formed but the
 #'   region is absent or corrupted, an error is raised.
 #'
 #' @examples
@@ -64,7 +64,7 @@ share <- function(x) .Call(sora_create, x)
 #'   extract the name.
 #'
 #' @export
-map_shared <- function(name) .Call(sora_shm_open_and_wrap, name)
+map_shared <- function(name) .Call(mori_shm_open_and_wrap, name)
 
 #' Test if an Object is Shared
 #'
@@ -81,7 +81,7 @@ map_shared <- function(name) .Call(sora_shm_open_and_wrap, name)
 #' is_shared(rnorm(100))
 #'
 #' @export
-is_shared <- function(x) .Call(sora_is_shared, x)
+is_shared <- function(x) .Call(mori_is_shared, x)
 
 #' Extract Shared Memory Name
 #'
@@ -100,4 +100,4 @@ is_shared <- function(x) .Call(sora_is_shared, x)
 #' @seealso [map_shared()] to open a shared region by name.
 #'
 #' @export
-shared_name <- function(x) .Call(sora_shm_name, x)
+shared_name <- function(x) .Call(mori_shm_name, x)

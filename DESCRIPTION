@@ -1,5 +1,5 @@
-Package: sora
-Title: Shared Objects for R Applications
+Package: mori
+Title: Shared Memory for R Objects
 Version: 0.0.1.9000
 Authors@R: c(
     person("Charlie", "Gao", , "charlie.gao@posit.co", role = c("aut", "cre"),
@@ -14,8 +14,8 @@ Description: Share R objects across processes on the same machine without
     lazy, zero-copy access, with shared objects serialized compactly by
     their shared memory name rather than their full contents.
 License: MIT + file LICENSE
-URL: https://shikokuchuo.net/sora/, https://github.com/shikokuchuo/sora
-BugReports: https://github.com/shikokuchuo/sora/issues
+URL: https://shikokuchuo.net/mori/, https://github.com/shikokuchuo/mori
+BugReports: https://github.com/shikokuchuo/mori/issues
 Depends:
     R (>= 4.3.0)
 Suggests:

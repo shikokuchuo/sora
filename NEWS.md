@@ -1,7 +1,8 @@
-# sora (development version)
+# mori (development version)
 
-* `sora()` has been renamed to `share()`.
+* Package renamed from `sora` to `mori`.
+* `sora()` had been renamed to `share()`.
 
-# sora 0.0.1
+# mori 0.0.1
 
 * Initial GitHub release.

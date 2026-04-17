@@ -1,4 +1,4 @@
-#' sora: Shared Objects for R Applications
+#' mori: Shared Memory for R Objects
 #'
 #' Share R objects via shared memory with [share()], access them in
 #' other processes with [map_shared()], using R's ALTREP framework for
@@ -6,5 +6,5 @@
 #' via ALTREP serialization hooks. Shared memory is automatically freed
 #' when the R object is garbage collected.
 #'
-#' @useDynLib sora, .registration = TRUE
+#' @useDynLib mori, .registration = TRUE
 "_PACKAGE"
