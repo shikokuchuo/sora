@@ -34,5 +34,5 @@ to open a shared region by name.
 ``` r
 x <- share(rnorm(100))
 shared_name(x)
-#> [1] "/sora_19a1_3"
+#> [1] "/sora_19e9_3"
 ```
