@@ -139,3 +139,44 @@ test_that("factor column extracted from list serializes compactly with attrs", {
   expect_identical(levels(col), levels(y))
   expect_identical(as.integer(col), as.integer(y))
 })
+
+# Path-depth fallback: MORI_MAX_PATH is 64, so > 64 levels of sub-list
+# nesting force Serialized_state to materialize instead of emitting a
+# compact (name, path) reference. Exercised for vec / string / sub-list
+# leaves respectively.
+
+test_that("vec leaf beyond MORI_MAX_PATH falls back to materialization", {
+  x <- 1:5
+  for (i in seq_len(70)) x <- list(x)
+  sx <- share(x)
+  deep <- sx
+  for (i in seq_len(70)) deep <- deep[[1]]
+  expect_true(is_shared(deep))
+  y <- unserialize(serialize(deep, NULL))
+  expect_identical(y[], 1:5)
+})
+
+test_that("string leaf beyond MORI_MAX_PATH falls back to materialization", {
+  x <- c("alpha", "beta", "gamma")
+  for (i in seq_len(70)) x <- list(x)
+  sx <- share(x)
+  deep <- sx
+  for (i in seq_len(70)) deep <- deep[[1]]
+  expect_true(is_shared(deep))
+  y <- unserialize(serialize(deep, NULL))
+  expect_identical(y[], c("alpha", "beta", "gamma"))
+})
+
+test_that("sub-list beyond MORI_MAX_PATH falls back to materialization", {
+  x <- list(leaf = 1:3)
+  for (i in seq_len(70)) x <- list(x)
+  sx <- share(x)
+  deep <- sx
+  for (i in seq_len(68)) deep <- deep[[1]]
+  expect_true(is_shared(deep))
+  expect_true(is.list(deep))
+  y <- unserialize(serialize(deep, NULL))
+  final <- y
+  while (is.list(final) && is.null(names(final))) final <- final[[1]]
+  expect_identical(final$leaf[], 1:3)
+})
