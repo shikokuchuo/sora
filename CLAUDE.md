@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-sora — Shared Objects for R Applications. Uses POSIX shared memory (Linux, macOS) and Win32 file mappings (Windows) with R's ALTREP framework to let multiple processes on the same machine read the same physical memory pages. No external dependencies. Requires R >= 4.3.0 (for ALTLIST). API: `sora()` → ALTREP shared object, `map_shared()` → open SHM by name, `shared_name()` → extract SHM name, `is_shared()` → test if shared. SHM lifetime is automatic — managed by R's garbage collector via chained external pointer finalizers. ALTREP serialization hooks serialize standalone shared objects as the SHM name (~30 bytes) and ALTLIST element vectors as `(parent_name, index)`, enabling transparent use with mirai and any R serialization path.
+sora — Shared Objects for R Applications. Uses POSIX shared memory (Linux, macOS) and Win32 file mappings (Windows) with R's ALTREP framework to let multiple processes on the same machine read the same physical memory pages. No external dependencies. Requires R >= 4.3.0 (for ALTLIST). API: `share()` → ALTREP shared object, `map_shared()` → open SHM by name, `shared_name()` → extract SHM name, `is_shared()` → test if shared. SHM lifetime is automatic — managed by R's garbage collector via chained external pointer finalizers. ALTREP serialization hooks serialize standalone shared objects as the SHM name (~30 bytes) and ALTLIST element vectors as `(parent_name, index)`, enabling transparent use with mirai and any R serialization path.
 
 ## Development Commands
 
@@ -37,11 +37,11 @@ devtools::document()
 ### Two-Tier Design
 
 - **Tier 2 (zero-copy)**: All atomic vectors (including character vectors and those with arbitrary attributes such as names, class, levels, dim) and data frame columns are written directly into SHM and backed by ALTREP on consumers. Attributes are serialized into a trailing section of the SHM region and restored via `SET_ATTRIB` on the consumer. For numeric types, `Dataptr_or_null` returns the SHM pointer for reads; `Dataptr(writable=TRUE)` materializes a private copy (COW). For character vectors, `Elt` lazily creates each CHARSXP via `Rf_mkCharLenCE` from the SHM data; `Dataptr_or_null` returns NULL to force element-by-element access.
-- **Tier 1 (pass-through)**: All other R objects (environments, closures, language objects) are returned unchanged by `sora()`. No SHM is created.
+- **Tier 1 (pass-through)**: All other R objects (environments, closures, language objects) are returned unchanged by `share()`. No SHM is created.
 
-### sora() Dispatch Logic (altrep.c: `sora_create`)
+### share() Dispatch Logic (altrep.c: `sora_create`)
 
-All R exported functions are single `.Call` wrappers. `sora()` calls `sora_create` which dispatches on `TYPEOF(x)`:
+All R exported functions are single `.Call` wrappers. `share()` calls `sora_create` which dispatches on `TYPEOF(x)`:
 
 1. `NILSXP` → returned as-is (falls through all checks).
 2. `VECSXP`/`LISTSXP` → `sora_shm_create_list_call` — ALTLIST with per-element directory. Each element is independently Tier 2 (any atomic, with or without attributes) or Tier 1 (serialized). Data frames and pairlists go through this path (pairlists are coerced to VECSXP via `Rf_coerceVector` at the C level).
@@ -55,7 +55,7 @@ Each creation path returns the ALTREP result via `sora_make_result`, which chain
 
 All ALTREP classes register `Serialized_state` and `Unserialize` methods.
 
-- **Standalone shared objects** (created by `sora()` or `map_shared()`) serialize as just the SHM name string (~30 bytes). On unserialize, `sora_Unserialize` validates the name via `sora_is_shm_name()` (checks `/sora_` prefix on POSIX, `Local\sora_` on Windows), then `sora_shm_open_and_wrap` opens the SHM and creates a fresh ALTREP wrapper. R's ALTREP serialization framework separately serializes and restores the object's attributes.
+- **Standalone shared objects** (created by `share()` or `map_shared()`) serialize as just the SHM name string (~30 bytes). On unserialize, `sora_Unserialize` validates the name via `sora_is_shm_name()` (checks `/sora_` prefix on POSIX, `Local\sora_` on Windows), then `sora_shm_open_and_wrap` opens the SHM and creates a fresh ALTREP wrapper. R's ALTREP serialization framework separately serializes and restores the object's attributes.
 - **Element vectors from ALTLIST** serialize as `list(parent_name, index)`. On unserialize, `sora_Unserialize` validates element types (first element is STRSXP, second is INTSXP) before treating as an element reference, then `sora_open_element` opens the parent SHM and extracts the element by index (including restoring per-element attributes from the directory's `attrs_size` field). The element's `sora_vec`/`sora_str` struct stores an `index` field (int32_t, -1 for standalone, >= 0 for ALTLIST elements).
 
 Fallback to full materialization when:
@@ -152,7 +152,7 @@ SHM lifetime is fully automatic, managed by chaining the host extptr (responsibl
 ### R/ Directory
 
 - **sora-package.R**: Package docs
-- **sora.R**: All four exported functions are single `.Call` wrappers — dispatch and error handling are at the C level. `sora()` → `sora_create`, `map_shared()` → `sora_shm_open_and_wrap`, `shared_name()` → `sora_shm_name`, `is_shared()` → `sora_is_shared`.
+- **sora.R**: All four exported functions are single `.Call` wrappers — dispatch and error handling are at the C level. `share()` → `sora_create`, `map_shared()` → `sora_shm_open_and_wrap`, `shared_name()` → `sora_shm_name`, `is_shared()` → `sora_is_shared`.
 
 ## Testing
 

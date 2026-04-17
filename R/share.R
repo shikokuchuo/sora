@@ -25,21 +25,21 @@
 #' referenced in R, and is freed by the garbage collector when no
 #' references remain.
 #'
-#' **Important**: always assign the result of `sora()` to a
+#' **Important**: always assign the result of `share()` to a
 #' variable. The shared memory is kept alive by the R object reference —
 #' if the result is used as a temporary (not assigned), the garbage
 #' collector may free the shared memory before a consumer process has
 #' mapped it.
 #'
 #' @examples
-#' x <- sora(rnorm(100))
+#' x <- share(rnorm(100))
 #' sum(x)
 #'
 #' @seealso [map_shared()] to open a shared region by name,
 #'   [shared_name()] to extract the SHM name.
 #'
 #' @export
-sora <- function(x) .Call(sora_create, x)
+share <- function(x) .Call(sora_create, x)
 
 #' Open Shared Memory by Name
 #'
@@ -55,12 +55,12 @@ sora <- function(x) .Call(sora_create, x)
 #'   region is absent or corrupted, an error is raised.
 #'
 #' @examples
-#' x <- sora(1:100)
+#' x <- share(1:100)
 #' nm <- shared_name(x)
 #' y <- map_shared(nm)
 #' sum(y)
 #'
-#' @seealso [sora()] to create a shared object, [shared_name()] to
+#' @seealso [share()] to create a shared object, [shared_name()] to
 #'   extract the name.
 #'
 #' @export
@@ -69,14 +69,14 @@ map_shared <- function(name) .Call(sora_shm_open_and_wrap, name)
 #' Test if an Object is Shared
 #'
 #' Returns `TRUE` if `x` is an ALTREP object backed by shared memory
-#' (created by [sora()] or [map_shared()]), `FALSE` otherwise.
+#' (created by [share()] or [map_shared()]), `FALSE` otherwise.
 #'
 #' @param x an R object.
 #'
 #' @return `TRUE` or `FALSE`.
 #'
 #' @examples
-#' x <- sora(rnorm(100))
+#' x <- share(rnorm(100))
 #' is_shared(x)
 #' is_shared(rnorm(100))
 #'
@@ -88,13 +88,13 @@ is_shared <- function(x) .Call(sora_is_shared, x)
 #' Extract the SHM region name from a shared object. This name can be
 #' passed to [map_shared()] to open the same region in another process.
 #'
-#' @param x a shared object as returned by [sora()] or [map_shared()].
+#' @param x a shared object as returned by [share()] or [map_shared()].
 #'
 #' @return A character string identifying the shared memory region, or
 #'   the empty string `""` if `x` is not a shared object.
 #'
 #' @examples
-#' x <- sora(rnorm(100))
+#' x <- share(rnorm(100))
 #' shared_name(x)
 #'
 #' @seealso [map_shared()] to open a shared region by name.

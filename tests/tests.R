@@ -18,16 +18,16 @@ library(sora)
 # Unit tests: Tier 1 — pass-through for non-ALTREP types
 
 x <- y ~ x + z
-test_identical(sora(x), x)
+test_identical(share(x), x)
 
 x <- NULL
-test_null(sora(x))
+test_null(share(x))
 
 # Unit tests: Tier 2 — bare vector round-trip via map_shared
 
 # Double
 x <- as.double(1:1000)
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_equal(length(y), length(x))
 test_equal(sum(y), sum(x))
@@ -35,38 +35,38 @@ test_identical(x, y[])
 
 # Integer
 x <- 1:1000L
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_identical(x, y[])
 
 # Logical
 x <- c(TRUE, FALSE, NA, TRUE, FALSE)
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_identical(x, y[])
 
 # Raw
 x <- as.raw(0:255)
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_identical(x, y[])
 
 # Complex
 x <- complex(10, real = 1:10, imaginary = 10:1)
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_identical(x, y[])
 
 # Matrix (dim attribute)
 m <- matrix(as.double(1:12), nrow = 3)
-sm <- sora(m)
+sm <- share(m)
 n <- map_shared(shared_name(sm))
 test_identical(dim(m), dim(n))
 test_identical(as.double(m), as.double(n))
 
 # Empty vector
 x <- double(0)
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_equal(length(y), 0L)
 
@@ -74,7 +74,7 @@ test_equal(length(y), 0L)
 
 # Data frame with numeric and integer columns
 df <- data.frame(a = as.double(1:100), b = 1:100, c = rep(TRUE, 100))
-sdf <- sora(df)
+sdf <- share(df)
 df2 <- map_shared(shared_name(sdf))
 test_class(df2, "data.frame")
 test_equal(nrow(df2), 100L)
@@ -85,7 +85,7 @@ test_identical(names(df), names(df2))
 
 # Mixed list: atomic + character
 lst <- list(x = as.double(1:50), y = letters, z = 1:10)
-slst <- sora(lst)
+slst <- share(lst)
 lst2 <- map_shared(shared_name(slst))
 test_identical(lst$x, lst2$x[])
 test_identical(lst$y, lst2$y)
@@ -93,7 +93,7 @@ test_identical(lst$z, lst2$z[])
 
 # List with NULL elements (sentinel test)
 lst <- list(NULL, 1:3, NULL)
-slst <- sora(lst)
+slst <- share(lst)
 lst2 <- map_shared(shared_name(slst))
 test_null(lst2[[1]])
 test_identical(lst[[2]], lst2[[2]][])
@@ -103,7 +103,7 @@ test_null(lst2[[1]])
 
 # ALTLIST Duplicate
 df <- data.frame(a = as.double(1:10), b = 1:10)
-sdf <- sora(df)
+sdf <- share(df)
 df2 <- map_shared(shared_name(sdf))
 df3 <- df2
 df3$a <- df3$a * 2
@@ -113,7 +113,7 @@ test_equal(df3$a, df$a * 2)
 # Unit tests: ALTREP COW (copy-on-write)
 
 x <- as.double(1:100)
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 original <- y[1]
 
@@ -129,40 +129,40 @@ test_equal(z[1], original)
 # Unit tests: R API — share / map_shared / shared_name / is_shared
 
 # Return format — share returns usable objects
-x <- sora(as.double(1:10))
+x <- share(as.double(1:10))
 test_true(is.double(x))
 test_equal(length(x), 10L)
 
 # Bare vector round-trip
 x <- as.double(1:100)
-y <- sora(x)
+y <- share(x)
 test_identical(x, y[])
 
 # Integer vector
 x <- 1:1000L
-y <- sora(x)
+y <- share(x)
 test_identical(x, y[])
 
 # Data frame
 df <- data.frame(a = as.double(1:50), b = 1:50)
-df2 <- sora(df)
+df2 <- share(df)
 test_class(df2, "data.frame")
 test_identical(df$a, df2$a[])
 test_identical(df$b, df2$b[])
 
 # Character vector (Tier 2 ALTSTRING)
 x <- letters
-y <- sora(x)
+y <- share(x)
 test_identical(x, y)
 
 # Matrix
 m <- matrix(1:12, nrow = 3)
-n <- sora(m)
+n <- share(m)
 test_identical(dim(m), dim(n))
 test_identical(as.integer(m), as.integer(n))
 
 # shared_name + map_shared round-trip
-x <- sora(as.double(1:50))
+x <- share(as.double(1:50))
 nm <- shared_name(x)
 test_true(is.character(nm))
 test_true(nchar(nm) > 0L)
@@ -170,7 +170,7 @@ y <- map_shared(nm)
 test_identical(x[], y[])
 
 # is_shared
-x <- sora(1:10)
+x <- share(1:10)
 test_true(is_shared(x))
 test_false(is_shared(1:10))
 
@@ -178,13 +178,13 @@ test_false(is_shared(1:10))
 
 # Basic string vector
 x <- c("hello", "world", "foo")
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_identical(x, y)
 
 # String vector with NA
 x <- c("a", NA, "b", NA, "c")
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_identical(x, y)
 test_true(is.na(y[2]))
@@ -192,26 +192,26 @@ test_true(is.na(y[4]))
 
 # Empty strings
 x <- c("", "", "notempty", "")
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_identical(x, y)
 
 # Empty character vector
 x <- character(0)
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_equal(length(y), 0L)
 test_identical(x, y)
 
 # UTF-8 strings
 x <- c("\u00e9", "\u00fc", "\u2603")
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_identical(x, y)
 
 # Large character vector
 x <- paste0("str_", seq_len(10000))
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 test_equal(length(y), 10000L)
 test_identical(x[1], y[1])
@@ -220,7 +220,7 @@ test_identical(x, y)
 
 # Character column in ALTLIST (data frame)
 df <- data.frame(id = c("a", "b", "c"), val = 1:3, stringsAsFactors = FALSE)
-sdf <- sora(df)
+sdf <- share(df)
 df2 <- map_shared(shared_name(sdf))
 test_class(df2, "data.frame")
 test_identical(df$id, df2$id)
@@ -228,7 +228,7 @@ test_identical(df$val, df2$val[])
 
 # Character element in list
 lst <- list(x = letters, y = 1:10, z = c(NA, "test"))
-slst <- sora(lst)
+slst <- share(lst)
 lst2 <- map_shared(shared_name(slst))
 test_identical(lst$x, lst2$x)
 test_identical(lst$y, lst2$y[])
@@ -236,7 +236,7 @@ test_identical(lst$z, lst2$z)
 
 # COW on string vector
 x <- c("original", "data")
-sx <- sora(x)
+sx <- share(x)
 y <- map_shared(shared_name(sx))
 y2 <- y
 y2[1] <- "modified"
@@ -248,27 +248,27 @@ test_identical(z[1], "original")
 # Unit tests: ALTREP serialization hooks
 
 # Standalone double vector round-trip
-x <- sora(rnorm(1000))
+x <- share(rnorm(1000))
 buf <- serialize(x, NULL)
 y <- unserialize(buf)
 test_equal(length(y), 1000L)
 test_identical(x[], y[])
 
 # Standalone integer round-trip
-x <- sora(1:500L)
+x <- share(1:500L)
 buf <- serialize(x, NULL)
 y <- unserialize(buf)
 test_identical(x[], y[])
 
 # Standalone string round-trip
-x <- sora(letters)
+x <- share(letters)
 buf <- serialize(x, NULL)
 y <- unserialize(buf)
 test_identical(x[], y[])
 
 # List/data frame round-trip
 df <- data.frame(a = as.double(1:100), b = 1:100)
-x <- sora(df)
+x <- share(df)
 buf <- serialize(x, NULL)
 y <- unserialize(buf)
 test_class(y, "data.frame")
@@ -277,14 +277,14 @@ test_identical(x$b[], y$b[])
 
 # Matrix with dim round-trip
 m <- matrix(rnorm(120), nrow = 10)
-x <- sora(m)
+x <- share(m)
 buf <- serialize(x, NULL)
 y <- unserialize(buf)
 test_identical(dim(x), dim(y))
 test_identical(x[], y[])
 
 # COW-materialized falls back to normal serialization
-x <- sora(as.double(1:100))
+x <- share(as.double(1:100))
 x[1] <- 999
 buf <- serialize(x, NULL)
 y <- unserialize(buf)
@@ -294,7 +294,7 @@ test_equal(length(y), 100L)
 test_true(length(buf) > 200)
 
 # Element vector from list serializes compactly
-df <- sora(data.frame(a = as.double(1:100), b = 1:100))
+df <- share(data.frame(a = as.double(1:100), b = 1:100))
 col <- df$a
 buf <- serialize(col, NULL)
 test_true(length(buf) < 1000)
@@ -302,7 +302,7 @@ y <- unserialize(buf)
 test_identical(col[], y[])
 
 # Element string from list serializes compactly
-x <- sora(list(a = 1:100, b = letters))
+x <- share(list(a = 1:100, b = letters))
 elem <- x[[2]]
 buf <- serialize(elem, NULL)
 test_true(length(buf) < 1000)
@@ -310,7 +310,7 @@ y <- unserialize(buf)
 test_identical(elem[], y[])
 
 # COW-materialized element falls back to normal serialization
-x <- sora(list(a = 1:10))
+x <- share(list(a = 1:10))
 elem <- x[[1]]
 elem[1] <- 99L
 buf <- serialize(elem, NULL)
@@ -318,7 +318,7 @@ y <- unserialize(buf)
 test_identical(as.integer(y), c(99L, 2:10))
 
 # Compact serialization: shared bytes << full data
-x <- sora(rnorm(1e5))
+x <- share(rnorm(1e5))
 buf <- serialize(x, NULL)
 test_true(length(buf) < 1000)
 
@@ -326,44 +326,44 @@ test_true(length(buf) < 1000)
 
 # Named double vector
 x <- c(a = 1, b = 2, c = 3)
-y <- sora(x)
+y <- share(x)
 test_identical(x, y[])
 test_identical(names(x), names(y))
 
 # Named integer vector
 x <- c(a = 1L, b = 2L, c = 3L)
-y <- sora(x)
+y <- share(x)
 test_identical(x, y[])
 test_identical(names(x), names(y))
 
 # Factor
 x <- factor(c("b", "a", "c", "a", "b"))
-y <- sora(x)
+y <- share(x)
 test_class(y, "factor")
 test_identical(levels(x), levels(y))
 test_identical(as.integer(x), as.integer(y))
 
 # Date
 x <- as.Date("2024-01-01") + 0:9
-y <- sora(x)
+y <- share(x)
 test_class(y, "Date")
 test_identical(x, y[])
 
 # POSIXct
 x <- as.POSIXct("2024-01-01 12:00:00", tz = "UTC") + 0:4
-y <- sora(x)
+y <- share(x)
 test_class(y, "POSIXct")
 test_identical(x, y[])
 
 # Named character vector
 x <- c(a = "hello", b = "world")
-y <- sora(x)
+y <- share(x)
 test_identical(x, y)
 test_identical(names(x), names(y))
 
 # Factor column in data frame (Tier 2 via ALTLIST)
 df <- data.frame(id = factor(c("x", "y", "z")), val = 1:3)
-df2 <- sora(df)
+df2 <- share(df)
 test_class(df2, "data.frame")
 test_class(df2$id, "factor")
 test_identical(levels(df$id), levels(df2$id))
@@ -372,35 +372,35 @@ test_identical(df$val, df2$val[])
 
 # Date column in data frame
 df <- data.frame(date = as.Date("2024-01-01") + 0:4, val = 1:5)
-df2 <- sora(df)
+df2 <- share(df)
 test_class(df2, "data.frame")
 test_class(df2$date, "Date")
 test_identical(df$date, df2$date[])
 test_identical(df$val, df2$val[])
 
 # map_shared preserves attrs
-x <- sora(c(a = 1, b = 2, c = 3))
+x <- share(c(a = 1, b = 2, c = 3))
 nm <- shared_name(x)
 y <- map_shared(nm)
 test_identical(names(x), names(y))
 test_identical(x[], y[])
 
 # map_shared preserves factor
-x <- sora(factor(c("a", "b", "c")))
+x <- share(factor(c("a", "b", "c")))
 nm <- shared_name(x)
 y <- map_shared(nm)
 test_class(y, "factor")
 test_identical(levels(x), levels(y))
 
 # Serialization round-trip with named vector
-x <- sora(c(a = 1, b = 2, c = 3))
+x <- share(c(a = 1, b = 2, c = 3))
 buf <- serialize(x, NULL)
 y <- unserialize(buf)
 test_identical(names(x), names(y))
 test_identical(x[], y[])
 
 # Serialization round-trip with factor
-x <- sora(factor(c("x", "y", "x")))
+x <- share(factor(c("x", "y", "x")))
 buf <- serialize(x, NULL)
 y <- unserialize(buf)
 test_class(y, "factor")
@@ -408,14 +408,14 @@ test_identical(levels(x), levels(y))
 test_identical(as.integer(x), as.integer(y))
 
 # Serialization round-trip with Date
-x <- sora(as.Date("2024-01-01") + 0:4)
+x <- share(as.Date("2024-01-01") + 0:4)
 buf <- serialize(x, NULL)
 y <- unserialize(buf)
 test_class(y, "Date")
 test_identical(x[], y[])
 
 # Serialization round-trip with named character
-x <- sora(c(a = "hello", b = "world"))
+x <- share(c(a = "hello", b = "world"))
 buf <- serialize(x, NULL)
 y <- unserialize(buf)
 test_identical(names(x), names(y))
@@ -427,7 +427,7 @@ df <- data.frame(
   date = as.Date("2024-01-01") + 0:1,
   val = c(10, 20)
 )
-x <- sora(df)
+x <- share(df)
 buf <- serialize(x, NULL)
 y <- unserialize(buf)
 test_class(y, "data.frame")
@@ -438,7 +438,7 @@ test_identical(df$date, y$date[])
 test_identical(df$val, y$val[])
 
 # Element from list with factor column
-df <- sora(data.frame(id = factor(c("a", "b", "c")), val = 1:3))
+df <- share(data.frame(id = factor(c("a", "b", "c")), val = 1:3))
 col <- df$id
 buf <- serialize(col, NULL)
 y <- unserialize(buf)
@@ -449,7 +449,7 @@ test_identical(as.integer(col), as.integer(y))
 # Unit tests: GC-based automatic cleanup
 
 # Shared object can be GC'd without explicit unshare
-x <- sora(1:100)
+x <- share(1:100)
 nm <- shared_name(x)
 rm(x)
 gc()
@@ -457,21 +457,21 @@ gc()
 test_error(map_shared(nm), "not found")
 
 # Shared list GC cleans up SHM
-x <- sora(data.frame(a = 1:10, b = as.double(1:10)))
+x <- share(data.frame(a = 1:10, b = as.double(1:10)))
 nm <- shared_name(x)
 rm(x)
 gc()
 test_error(map_shared(nm), "not found")
 
 # Shared string GC cleans up SHM
-x <- sora(letters)
+x <- share(letters)
 nm <- shared_name(x)
 rm(x)
 gc()
 test_error(map_shared(nm), "not found")
 
 # Element keeps parent SHM alive
-x <- sora(data.frame(a = 1:10, b = as.double(1:10)))
+x <- share(data.frame(a = 1:10, b = as.double(1:10)))
 nm <- shared_name(x)
 col <- x$a
 rm(x)
@@ -487,7 +487,7 @@ test_error(map_shared(nm), "not found")
 # Unit tests: Pairlist input (coerced to VECSXP)
 
 pl <- pairlist(a = 1, b = 2L, c = "hello")
-spl <- sora(pl)
+spl <- share(pl)
 test_equal(length(spl), 3L)
 test_identical(spl[[1]][], 1)
 test_identical(spl[[2]][], 2L)
@@ -503,7 +503,7 @@ test_identical(spl[[3]], spl2[[3]])
 # Unit tests: Tier 1 elements in list
 
 lst <- list(fn = sum, val = 1:5, env = globalenv())
-slst <- sora(lst)
+slst <- share(lst)
 test_identical(slst$fn, sum)
 test_identical(slst$val[], 1:5)
 test_identical(slst$env, globalenv())
@@ -517,7 +517,7 @@ test_identical(y$val[], 1:5)
 # Unit tests: Named character vector inside a list
 
 lst <- list(x = c(a = "hello", b = "world"), y = 1:3)
-slst <- sora(lst)
+slst <- share(lst)
 test_identical(slst$x, c(a = "hello", b = "world"))
 test_identical(names(slst$x), c("a", "b"))
 test_identical(slst$y[], 1:3)
@@ -538,7 +538,7 @@ test_identical(names(y), c("a", "b"))
 # Unit tests: String vector Dataptr materialization
 
 # make.unique() uses STRING_PTR_RO internally, triggering sora_string_Dataptr
-x <- sora(c("a", "a", "b"))
+x <- share(c("a", "a", "b"))
 y <- map_shared(shared_name(x))
 z <- make.unique(y)
 test_identical(z, c("a", "a.1", "b"))
@@ -548,14 +548,14 @@ test_identical(y[1], "a")
 test_identical(y[], c("a", "a", "b"))
 
 # duplicated() on string ALTREP
-x2 <- sora(c("x", "y", "x"))
+x2 <- share(c("x", "y", "x"))
 y2 <- map_shared(shared_name(x2))
 d <- duplicated(y2)
 test_identical(d, c(FALSE, FALSE, TRUE))
 
 # Unit tests: COW-materialized string serialization
 
-x <- sora(c("alpha", "beta", "gamma"))
+x <- share(c("alpha", "beta", "gamma"))
 y <- map_shared(shared_name(x))
 y2 <- y
 y2[1] <- "delta"
@@ -566,13 +566,13 @@ test_identical(z, c("delta", "beta", "gamma"))
 # Unit tests: shared_name on various types
 
 # shared_name on list/data frame
-df <- sora(data.frame(a = 1:3))
+df <- share(data.frame(a = 1:3))
 nm <- shared_name(df)
 test_true(is.character(nm))
 test_true(nchar(nm) > 0L)
 
 # shared_name on string vector
-s <- sora(letters)
+s <- share(letters)
 nm <- shared_name(s)
 test_true(is.character(nm))
 
@@ -605,11 +605,11 @@ test_error(map_shared(bogus), "not found")
 # Unit tests: is_shared on various types
 
 # Shared list
-df <- sora(data.frame(a = 1:3))
+df <- share(data.frame(a = 1:3))
 test_true(is_shared(df))
 
 # Shared string
-s <- sora(letters)
+s <- share(letters)
 test_true(is_shared(s))
 
 # Various non-shared types
@@ -620,7 +620,7 @@ test_false(is_shared(list(1, 2)))
 
 # Unit tests: Materialized vec Dataptr_or_null
 
-x <- sora(as.double(1:100))
+x <- share(as.double(1:100))
 x[1] <- 999
 # sum() uses REAL_RO which goes through Dataptr_or_null on the materialized vec
 test_equal(sum(x), 999 + sum(2:100))

@@ -20,17 +20,21 @@ coverage](https://codecov.io/gh/shikokuchuo/sora/graph/badge.svg)](https://app.c
 
 Shared Objects for R Applications
 
-→ `sora()` writes an R object into shared memory and returns a shared
+→ `share()` writes an R object into shared memory and returns a shared
 version
 
-→ ALTREP serialization hooks — shared objects serialize compactly
+→ ALTREP serialization hooks — shared objects serialize compactly and
+work transparently with `serialize()` and `mirai()`
 
-→ ALTREP-backed lazy access — columns materialize on first touch, not
-before
+→ ALTREP-backed lazy access — a 100-column data frame is one `mmap`;
+columns materialize on first touch
 
-→ OS-level shared memory (POSIX / Win32), no external dependencies
+→ OS-level shared memory (POSIX / Win32) — pure C, no external
+dependencies; read-only in other processes, preventing corruption of
+shared data
 
-→ Automatic cleanup — shared memory is freed by R’s garbage collector
+→ Automatic cleanup — shared memory is freed when the R object is
+garbage collected
 
 <br />
 
@@ -42,7 +46,7 @@ install.packages("sora")
 
 ### Quick Start
 
-`sora()` writes an R object into shared memory and returns a shared
+`share()` writes an R object into shared memory and returns a shared
 version backed by zero-copy ALTREP. Shared objects serialize compactly
 via ALTREP serialization hooks, working transparently with mirai and any
 R serialization path. Shared memory is automatically freed when the
@@ -52,12 +56,12 @@ object is garbage collected.
 library(sora)
 
 # Share a vector — returns an ALTREP-backed object
-x <- sora(rnorm(1e6))
+x <- share(rnorm(1e6))
 mean(x)
-#> [1] -0.0003908872
+#> [1] 0.0005849773
 
 # Serialized form is ~100 bytes, not ~8 MB
-length(serialize(x, NULL))
+x |> serialize(NULL) |> length()
 #> [1] 124
 ```
 
@@ -68,12 +72,12 @@ length(serialize(x, NULL))
 same data from another process without serialization:
 
 ``` r
-x <- sora(1:1e6)
+x <- share(1:1e6)
 
 # Extract the SHM name
 nm <- shared_name(x)
 nm
-#> [1] "/sora_9d7c_1"
+#> [1] "/sora_3b45_1"
 
 # Another process can map the same region by name
 y <- map_shared(nm)
@@ -93,13 +97,13 @@ library(mirai)
 
 daemons(1)
 
-x <- sora(rnorm(1e6))
+x <- share(rnorm(1e6))
 
 # Worker maps the same shared memory — 0 bytes copied
 m <- mirai(list(mean = mean(x), size = lobstr::obj_size(x)), x = x)
 m[]
 #> $mean
-#> [1] -5.607519e-05
+#> [1] 0.002518122
 #> 
 #> $size
 #> 792 B
@@ -115,27 +119,12 @@ as the full data:
 daemons(3)
 
 # Share a list — all 3 vectors in a single shared region
-x <- sora(list(a = rnorm(1e6), b = rnorm(1e6), c = rnorm(1e6)))
+x <- list(a = rnorm(1e6), b = rnorm(1e6), c = rnorm(1e6)) |> share()
 
 # Each element is sent as (parent_name, index) — zero-copy on the worker
-mirai_map(x, \(v) list(mean = mean(v), size = lobstr::obj_size(v)))[.flat]
-#> $a.mean
-#> [1] -0.000414157
-#> 
-#> $a.size
-#> 728 B
-#> 
-#> $b.mean
-#> [1] -0.001099396
-#> 
-#> $b.size
-#> 728 B
-#> 
-#> $c.mean
-#> [1] -0.0008098337
-#> 
-#> $c.size
-#> 728 B
+mirai_map(x, \(v) lobstr::obj_size(v) |> format())[.flat]
+#>       a       b       c 
+#> "728 B" "728 B" "728 B"
 
 daemons(0)
 ```
@@ -146,47 +135,29 @@ Parallel computing multiplies memory. When 8 workers each need the same
 210 MB dataset, that is 1.7 GB of serialization, transfer, and
 deserialization — plus 8 separate copies consuming RAM.
 
-sora eliminates all of it. `sora()` writes data into shared memory once.
-Each worker maps the same physical pages, receiving a reference of ~300
-bytes instead of the full dataset — a payload ~700,000 times smaller,
-which translates into a significant saving in total runtime:
+sora eliminates all of it. `share()` writes data into shared memory
+once. Each worker maps the same physical pages, receiving a reference of
+~300 bytes instead of the full dataset — a payload ~700,000 times
+smaller, which translates into a significant saving in total runtime:
 
 ``` r
 daemons(8)
 
-set.seed(42)
-n <- 5000000L
-df <- data.frame(
-  x1 = rnorm(n), x2 = rnorm(n), x3 = rnorm(n),
-  x4 = runif(n), x5 = runif(n),
-  group = sample.int(100L, n, replace = TRUE)
-)
+# 200 MB data frame — 5 columns × 5M rows
+df <- as.data.frame(matrix(rnorm(25e6), ncol = 5))
+shared_df <- share(df)
 
-shared_df <- sora(df)
-
-# Per-task payload: ~210 MB vs ~300 bytes
-length(serialize(df, NULL))
-#> [1] 220000263
-length(serialize(shared_df, NULL))
-#> [1] 304
-
-boot_means <- function(seed, data) {
-  set.seed(seed)
-  idx <- sample.int(nrow(data), replace = TRUE)
-  colMeans(data[idx, ])
-}
-
-seeds <- seq_len(8L)
+boot_mean <- \(i, data) colMeans(data[sample(nrow(data), replace = TRUE), ])
 
 # Without sora — each daemon deserializes a full copy
-system.time(mirai_map(seeds, boot_means, data = df)[])
+mirai_map(1:8, boot_mean, data = df)[] |> system.time()
 #>    user  system elapsed 
-#>   2.277  41.268   6.574
+#>   2.062  38.522   5.845
 
 # With sora — each daemon maps the same shared memory
-system.time(mirai_map(seeds, boot_means, data = shared_df)[])
+mirai_map(1:8, boot_mean, data = shared_df)[] |> system.time()
 #>    user  system elapsed 
-#>   1.443  29.058   4.364
+#>   1.342  26.513   3.959
 
 daemons(0)
 ```
@@ -198,16 +169,16 @@ daemons(0)
 All atomic vector types and lists / data frames are written directly
 into shared memory, with attributes (`class`, `names`, `dim`, `levels`,
 `tzone`, …) preserved end-to-end. Pairlists are coerced to lists.
-`sora()` returns ALTREP wrappers that point into the shared pages — no
+`share()` returns ALTREP wrappers that point into the shared pages — no
 deserialization, no per-process memory allocation.
 
 All other R objects (environments, closures, language objects) are
-returned unchanged by `sora()` — no shared memory region is created.
+returned unchanged by `share()` — no shared memory region is created.
 
 <figure>
 <img src="man/figures/sora-diagram.svg"
-alt="Diagram showing sora() writing an object once into OS-backed shared memory, which is then memory-mapped by other processes using zero-copy ALTREP wrappers" />
-<figcaption aria-hidden="true">Diagram showing sora() writing an object
+alt="Diagram showing share() writing an object once into OS-backed shared memory, which is then memory-mapped by other processes using zero-copy ALTREP wrappers" />
+<figcaption aria-hidden="true">Diagram showing share() writing an object
 once into OS-backed shared memory, which is then memory-mapped by other
 processes using zero-copy ALTREP wrappers</figcaption>
 </figure>
@@ -225,7 +196,7 @@ alive as long as the shared object (or any element extracted from it) is
 referenced in R. When no references remain, the garbage collector frees
 the shared memory automatically.
 
-**Important:** Always assign the result of `sora()` to a variable. The
+**Important:** Always assign the result of `share()` to a variable. The
 shared memory is kept alive by the R object reference — if the result is
 used as a temporary (not assigned), the garbage collector may free the
 shared memory before a consumer process has mapped it.
@@ -242,34 +213,6 @@ original shared data:
 - **Modifying values** within a shared vector (e.g., `X[1] <- 0`)
   materializes just that vector into a private copy. Other vectors in
   the same shared region stay zero-copy.
-
-### Design Highlights
-
-#### Transparent IPC
-
-All atomic vector types (via ALTREAL, ALTINTEGER, ALTLOGICAL, ALTRAW,
-ALTCOMPLEX, ALTSTRING) and lists / data frames (via ALTLIST) work with
-`serialize()` and `mirai()` — no descriptor or attach step.
-
-#### Zero dependencies
-
-Pure C against OS APIs (POSIX SHM, Win32 file mappings) — no Rcpp, no
-Boost, no C++ on the build path.
-
-#### Single SHM region per compound object
-
-A 100-column data frame is one `mmap`, not 100.
-
-#### Read-only consumer mappings
-
-`PROT_READ` is OS-enforced; a buggy worker cannot corrupt the shared
-region.
-
-#### GC-driven lifetime
-
-Finalizers chain `munmap` + `unlink` through R’s external pointer
-hierarchy, with session-exit cleanup — no stranded regions, no
-descriptor files to manage.
 
 –
 

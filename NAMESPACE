@@ -2,6 +2,6 @@
 
 export(is_shared)
 export(map_shared)
+export(share)
 export(shared_name)
-export(sora)
 useDynLib(sora, .registration = TRUE)

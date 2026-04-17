@@ -2,10 +2,11 @@
 % Please edit documentation in R/sora-package.R
 \docType{package}
 \name{sora-package}
+\alias{sora}
 \alias{sora-package}
 \title{sora: Shared Objects for R Applications}
 \description{
-Share R objects via shared memory with \code{\link[=sora]{sora()}}, access them in
+Share R objects via shared memory with \code{\link[=share]{share()}}, access them in
 other processes with \code{\link[=map_shared]{map_shared()}}, using R's ALTREP framework for
 zero-copy memory-mapped access. Shared objects serialize compactly
 via ALTREP serialization hooks. Shared memory is automatically freed
@@ -29,4 +30,3 @@ Other contributors:
 }
 
 }
-\keyword{internal}
