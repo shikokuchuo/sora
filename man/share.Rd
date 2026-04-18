@@ -34,6 +34,10 @@ long as the returned object (or any element extracted from it) is
 referenced in R, and is freed by the garbage collector when no
 references remain.
 
+\code{share()} is idempotent: calling it on an object that is already
+backed by shared memory returns the input unchanged without
+allocating a new region.
+
 \strong{Important}: always assign the result of \code{share()} to a
 variable. The shared memory is kept alive by the R object reference —
 if the result is used as a temporary (not assigned), the garbage
