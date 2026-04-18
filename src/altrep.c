@@ -27,7 +27,7 @@ typedef struct {
 
 // SHM eligibility: any atomic vector (attributes stored separately) ---------
 
-static int mori_shm_eligible(int type) {
+static inline int mori_shm_eligible(int type) {
   return type == REALSXP || type == INTSXP || type == LGLSXP ||
          type == RAWSXP || type == CPLXSXP || type == STRSXP;
 }
@@ -77,7 +77,8 @@ static void mori_set_attrs_from(SEXP result, SEXP attrs) {
 #endif
 }
 
-static void mori_restore_attrs(SEXP result, unsigned char *buf, size_t size) {
+static inline void mori_restore_attrs(SEXP result, unsigned char *buf,
+                                      size_t size) {
   SEXP attrs = PROTECT(mori_unserialize_from(buf, size));
   mori_set_attrs_from(result, attrs);
   UNPROTECT(1);
@@ -85,7 +86,7 @@ static void mori_restore_attrs(SEXP result, unsigned char *buf, size_t size) {
 
 // SHM name validation for unserialize dispatch --------------------------------
 
-static int mori_is_shm_name(const char *s) {
+static inline int mori_is_shm_name(const char *s) {
 #ifdef _WIN32
   return strncmp(s, "Local\\mori_", 11) == 0;
 #else
@@ -153,6 +154,16 @@ static void *mori_vec_Dataptr(SEXP x, Rboolean writable) {
 static SEXP mori_make_vector(const void *data, R_xlen_t length,
                              int sexptype, SEXP keeper) {
 
+  R_altrep_class_t cls;
+  switch (sexptype) {
+  case REALSXP:  cls = mori_real_class;    break;
+  case INTSXP:   cls = mori_integer_class; break;
+  case LGLSXP:   cls = mori_logical_class; break;
+  case RAWSXP:   cls = mori_raw_class;     break;
+  case CPLXSXP:  cls = mori_complex_class; break;
+  default:       Rf_error("mori:unsupported ALTREP type %d", sexptype);
+  }
+
   mori_vec *v = (mori_vec *) malloc(sizeof(mori_vec));
   if (!v) Rf_error("mori:allocation failure");
   v->data = data;
@@ -161,19 +172,6 @@ static SEXP mori_make_vector(const void *data, R_xlen_t length,
 
   SEXP ptr = PROTECT(R_MakeExternalPtr(v, mori_owned_tag, keeper));
   R_RegisterCFinalizerEx(ptr, mori_owned_finalizer, TRUE);
-
-  R_altrep_class_t cls;
-  switch (sexptype) {
-  case REALSXP:  cls = mori_real_class;    break;
-  case INTSXP:   cls = mori_integer_class; break;
-  case LGLSXP:   cls = mori_logical_class; break;
-  case RAWSXP:   cls = mori_raw_class;     break;
-  case CPLXSXP:  cls = mori_complex_class; break;
-  default:
-    free(v);
-    UNPROTECT(1);
-    Rf_error("mori:unsupported ALTREP type %d", sexptype);
-  }
 
   SEXP result = R_new_altrep(cls, ptr, R_NilValue);
   UNPROTECT(1);
@@ -201,7 +199,7 @@ typedef struct {
   int32_t index;   /* -1 = standalone, >= 0 = element of ALTLIST */
 } mori_str;
 
-static SEXP mori_string_elt_shm(mori_str *s, R_xlen_t i) {
+static inline SEXP mori_string_elt_shm(mori_str *s, R_xlen_t i) {
   const unsigned char *entry = s->table + 16 * (size_t) i;
   int64_t str_offset;
   int32_t str_length, str_encoding;
@@ -463,11 +461,19 @@ static SEXP mori_list_Duplicate(SEXP x, Rboolean deep) {
   return result;
 }
 
-static SEXP mori_open_list(mori_shm *shm_stack);
-static SEXP mori_open_vector(mori_shm *shm_stack);
-static SEXP mori_open_string(mori_shm *shm_stack);
+static SEXP mori_dispatch_by_magic(mori_shm *shm, const char *err_name);
 
 // Host-side result helper: GC-chained SHM cleanup -----------------------------
+
+/* Allocate heap copy of shm and wrap in extptr with shm_tag + finalizer. */
+static inline SEXP mori_make_shm_ptr(mori_shm *shm_stack) {
+  mori_shm *shm = (mori_shm *) malloc(sizeof(mori_shm));
+  if (!shm) Rf_error("mori:allocation failure");
+  memcpy(shm, shm_stack, sizeof(mori_shm));
+  SEXP ptr = R_MakeExternalPtr(shm, mori_shm_tag, R_NilValue);
+  R_RegisterCFinalizerEx(ptr, mori_shm_finalizer, TRUE);
+  return ptr;
+}
 
 static SEXP mori_make_result(mori_shm *shm) {
 
@@ -484,33 +490,10 @@ static SEXP mori_make_result(mori_shm *shm) {
   SEXP host_ptr = PROTECT(R_MakeExternalPtr(host, mori_host_tag, R_NilValue));
   R_RegisterCFinalizerEx(host_ptr, mori_host_finalizer, TRUE);
 
-  /* Dispatch on magic bytes to wrap in ALTREP */
-  unsigned char *base = (unsigned char *) shm->addr;
-  uint32_t magic;
-  memcpy(&magic, base, 4);
-
-  SEXP result;
-  if (magic == 0x4D4F524Cu) {
-    result = PROTECT(mori_open_list(shm));
-    /* Chain: view data1's keeper (shm_ptr) protects host_ptr */
-    R_SetExternalPtrProtected(
-      R_ExternalPtrProtected(R_altrep_data1(result)), host_ptr);
-  } else if (magic == 0x4D4F5248u) {
-    result = PROTECT(mori_open_vector(shm));
-    /* Chain: vec data1's keeper (shm_ptr) protects host_ptr */
-    R_SetExternalPtrProtected(
-      R_ExternalPtrProtected(R_altrep_data1(result)), host_ptr);
-  } else if (magic == 0x4D4F5253u) {
-    result = PROTECT(mori_open_string(shm));
-    /* Chain: str data1's keeper (shm_ptr) protects host_ptr */
-    R_SetExternalPtrProtected(
-      R_ExternalPtrProtected(R_altrep_data1(result)), host_ptr);
-  } else {
-    /* Unknown magic: deserialize as raw bytes and release SHM immediately */
-    result = PROTECT(mori_unserialize_from(base, shm->size));
-    mori_shm_close(shm, 0);
-    mori_host_finalizer(host_ptr);
-  }
+  SEXP result = PROTECT(mori_dispatch_by_magic(shm, NULL));
+  /* Chain: data1's keeper (shm_ptr) protects host_ptr */
+  R_SetExternalPtrProtected(
+    R_ExternalPtrProtected(R_altrep_data1(result)), host_ptr);
 
   UNPROTECT(2);
   return result;
@@ -724,10 +707,8 @@ static SEXP mori_shm_create_list_call(SEXP x) {
   size_t total = mori_nested_size(x);
 
   mori_shm shm;
-  if (mori_shm_create(&shm, total) != 0) {
-    UNPROTECT(1);
+  if (mori_shm_create(&shm, total) != 0)
     Rf_error("mori:failed to create shared memory");
-  }
 
   mori_nested_write((unsigned char *) shm.addr, x);
 
@@ -832,12 +813,8 @@ SEXP mori_create(SEXP x) {
 /* Open SHM and create ALTLIST wrapper (root view, index = -1) */
 static SEXP mori_open_list(mori_shm *shm_stack) {
 
-  mori_shm *shm = (mori_shm *) malloc(sizeof(mori_shm));
-  if (!shm) Rf_error("mori:allocation failure");
-  memcpy(shm, shm_stack, sizeof(mori_shm));
-
-  SEXP shm_ptr = PROTECT(R_MakeExternalPtr(shm, mori_shm_tag, R_NilValue));
-  R_RegisterCFinalizerEx(shm_ptr, mori_shm_finalizer, TRUE);
+  SEXP shm_ptr = PROTECT(mori_make_shm_ptr(shm_stack));
+  mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(shm_ptr);
 
   SEXP result = mori_make_list_view(
     (unsigned char *) shm->addr, (int64_t) shm->size, -1, shm_ptr
@@ -850,12 +827,8 @@ static SEXP mori_open_list(mori_shm *shm_stack) {
 /* Open SHM and create ALTREP vector wrapper */
 static SEXP mori_open_vector(mori_shm *shm_stack) {
 
-  mori_shm *shm = (mori_shm *) malloc(sizeof(mori_shm));
-  if (!shm) Rf_error("mori:allocation failure");
-  memcpy(shm, shm_stack, sizeof(mori_shm));
-
-  SEXP shm_ptr = PROTECT(R_MakeExternalPtr(shm, mori_shm_tag, R_NilValue));
-  R_RegisterCFinalizerEx(shm_ptr, mori_shm_finalizer, TRUE);
+  SEXP shm_ptr = PROTECT(mori_make_shm_ptr(shm_stack));
+  mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(shm_ptr);
 
   unsigned char *base = (unsigned char *) shm->addr;
   int32_t sexptype;
@@ -881,12 +854,8 @@ static SEXP mori_open_vector(mori_shm *shm_stack) {
 /* Open SHM and create ALTREP string wrapper */
 static SEXP mori_open_string(mori_shm *shm_stack) {
 
-  mori_shm *shm = (mori_shm *) malloc(sizeof(mori_shm));
-  if (!shm) Rf_error("mori:allocation failure");
-  memcpy(shm, shm_stack, sizeof(mori_shm));
-
-  SEXP shm_ptr = PROTECT(R_MakeExternalPtr(shm, mori_shm_tag, R_NilValue));
-  R_RegisterCFinalizerEx(shm_ptr, mori_shm_finalizer, TRUE);
+  SEXP shm_ptr = PROTECT(mori_make_shm_ptr(shm_stack));
+  mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(shm_ptr);
 
   unsigned char *base = (unsigned char *) shm->addr;
   int32_t attrs_size;
@@ -908,6 +877,21 @@ static SEXP mori_open_string(mori_shm *shm_stack) {
   return result;
 }
 
+/* Dispatch on magic bytes and wrap in the appropriate ALTREP class.
+   On unknown magic, closes shm and errors. err_name is used in the
+   error message ("" if caller has no name to report). */
+static SEXP mori_dispatch_by_magic(mori_shm *shm, const char *err_name) {
+  unsigned char *base = (unsigned char *) shm->addr;
+  uint32_t magic;
+  memcpy(&magic, base, 4);
+  if (magic == 0x4D4F524Cu) return mori_open_list(shm);
+  if (magic == 0x4D4F5248u) return mori_open_vector(shm);
+  if (magic == 0x4D4F5253u) return mori_open_string(shm);
+  mori_shm_close(shm, 0);
+  Rf_error("mori:invalid or corrupted shared memory region: '%s'",
+           err_name != NULL ? err_name : "");
+}
+
 /* Open SHM by name, inspect magic, dispatch to appropriate wrapper.
    Malformed input (wrong type/length, NA, or not a mori SHM name) returns
    NULL silently. A well-formed name that fails to open or has unexpected
@@ -927,23 +911,7 @@ SEXP mori_shm_open_and_wrap(SEXP name) {
   if (mori_shm_open(&shm, nm) != 0)
     Rf_error("mori:shared memory region not found: '%s'", nm);
 
-  unsigned char *base = (unsigned char *) shm.addr;
-  uint32_t magic;
-  memcpy(&magic, base, 4);
-
-  if (magic == 0x4D4F524Cu) {
-    /* MORL: ALTLIST */
-    return mori_open_list(&shm);
-  } else if (magic == 0x4D4F5248u) {
-    /* MORH: bare ALTREP vector */
-    return mori_open_vector(&shm);
-  } else if (magic == 0x4D4F5253u) {
-    /* MORS: ALTREP string vector */
-    return mori_open_string(&shm);
-  }
-
-  mori_shm_close(&shm, 0);
-  Rf_error("mori:invalid or corrupted shared memory region: '%s'", nm);
+  return mori_dispatch_by_magic(&shm, nm);
 }
 
 SEXP mori_is_shared(SEXP x) {
@@ -1200,6 +1168,23 @@ static SEXP mori_Unserialize(SEXP class_info, SEXP state) {
 
 // ALTREP class registration ---------------------------------------------------
 
+typedef R_altrep_class_t (*mori_make_class_fn)(const char *, const char *,
+                                               DllInfo *);
+
+/* Register one of the 5 atomic ALTREP vector classes, all sharing the same
+   method set (mori_vec_*). */
+static R_altrep_class_t mori_register_vec_class(mori_make_class_fn make,
+                                                const char *name,
+                                                DllInfo *dll) {
+  R_altrep_class_t cls = make(name, "mori", dll);
+  R_set_altrep_Length_method(cls, mori_vec_Length);
+  R_set_altvec_Dataptr_method(cls, mori_vec_Dataptr);
+  R_set_altvec_Dataptr_or_null_method(cls, mori_vec_Dataptr_or_null);
+  R_set_altrep_Serialized_state_method(cls, mori_vec_Serialized_state);
+  R_set_altrep_Unserialize_method(cls, mori_Unserialize);
+  return cls;
+}
+
 void mori_altrep_init(DllInfo *dll) {
 
   mori_tag = Rf_install("mori");
@@ -1219,55 +1204,17 @@ void mori_altrep_init(DllInfo *dll) {
                                        mori_list_Serialized_state);
   R_set_altrep_Unserialize_method(mori_list_class, mori_Unserialize);
 
-  /* ALTREP real class */
-  mori_real_class = R_make_altreal_class("mori_real", "mori", dll);
-  R_set_altrep_Length_method(mori_real_class, mori_vec_Length);
-  R_set_altvec_Dataptr_method(mori_real_class, mori_vec_Dataptr);
-  R_set_altvec_Dataptr_or_null_method(mori_real_class,
-                                      mori_vec_Dataptr_or_null);
-  R_set_altrep_Serialized_state_method(mori_real_class,
-                                       mori_vec_Serialized_state);
-  R_set_altrep_Unserialize_method(mori_real_class, mori_Unserialize);
-
-  /* ALTREP integer class */
-  mori_integer_class = R_make_altinteger_class("mori_integer", "mori", dll);
-  R_set_altrep_Length_method(mori_integer_class, mori_vec_Length);
-  R_set_altvec_Dataptr_method(mori_integer_class, mori_vec_Dataptr);
-  R_set_altvec_Dataptr_or_null_method(mori_integer_class,
-                                      mori_vec_Dataptr_or_null);
-  R_set_altrep_Serialized_state_method(mori_integer_class,
-                                       mori_vec_Serialized_state);
-  R_set_altrep_Unserialize_method(mori_integer_class, mori_Unserialize);
-
-  /* ALTREP logical class */
-  mori_logical_class = R_make_altlogical_class("mori_logical", "mori", dll);
-  R_set_altrep_Length_method(mori_logical_class, mori_vec_Length);
-  R_set_altvec_Dataptr_method(mori_logical_class, mori_vec_Dataptr);
-  R_set_altvec_Dataptr_or_null_method(mori_logical_class,
-                                      mori_vec_Dataptr_or_null);
-  R_set_altrep_Serialized_state_method(mori_logical_class,
-                                       mori_vec_Serialized_state);
-  R_set_altrep_Unserialize_method(mori_logical_class, mori_Unserialize);
-
-  /* ALTREP raw class */
-  mori_raw_class = R_make_altraw_class("mori_raw", "mori", dll);
-  R_set_altrep_Length_method(mori_raw_class, mori_vec_Length);
-  R_set_altvec_Dataptr_method(mori_raw_class, mori_vec_Dataptr);
-  R_set_altvec_Dataptr_or_null_method(mori_raw_class,
-                                      mori_vec_Dataptr_or_null);
-  R_set_altrep_Serialized_state_method(mori_raw_class,
-                                       mori_vec_Serialized_state);
-  R_set_altrep_Unserialize_method(mori_raw_class, mori_Unserialize);
-
-  /* ALTREP complex class */
-  mori_complex_class = R_make_altcomplex_class("mori_complex", "mori", dll);
-  R_set_altrep_Length_method(mori_complex_class, mori_vec_Length);
-  R_set_altvec_Dataptr_method(mori_complex_class, mori_vec_Dataptr);
-  R_set_altvec_Dataptr_or_null_method(mori_complex_class,
-                                      mori_vec_Dataptr_or_null);
-  R_set_altrep_Serialized_state_method(mori_complex_class,
-                                       mori_vec_Serialized_state);
-  R_set_altrep_Unserialize_method(mori_complex_class, mori_Unserialize);
+  /* ALTREP atomic vector classes (all share the same mori_vec_* methods) */
+  mori_real_class    = mori_register_vec_class(R_make_altreal_class,
+                                               "mori_real",    dll);
+  mori_integer_class = mori_register_vec_class(R_make_altinteger_class,
+                                               "mori_integer", dll);
+  mori_logical_class = mori_register_vec_class(R_make_altlogical_class,
+                                               "mori_logical", dll);
+  mori_raw_class     = mori_register_vec_class(R_make_altraw_class,
+                                               "mori_raw",     dll);
+  mori_complex_class = mori_register_vec_class(R_make_altcomplex_class,
+                                               "mori_complex", dll);
 
   /* ALTSTRING class */
   mori_string_class = R_make_altstring_class("mori_string", "mori", dll);
