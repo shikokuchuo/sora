@@ -40,13 +40,6 @@ void mori_serialize_into(unsigned char *dst, size_t size, SEXP object) {
 
 // Read callbacks for unserialize-from-buffer ---------------------------------
 
-static int mori_read_char(R_inpstream_t stream) {
-  mori_buf *buf = (mori_buf *) stream->data;
-  return (buf->cur < buf->len)
-    ? (unsigned char) buf->buf[buf->cur++]
-    : -1;
-}
-
 static void mori_read_bytes(R_inpstream_t stream, void *dst, int len) {
   mori_buf *buf = (mori_buf *) stream->data;
   size_t n = (size_t) len;
@@ -60,8 +53,8 @@ SEXP mori_unserialize_from(unsigned char *src, size_t size) {
   mori_buf buf = {.buf = src, .len = size, .cur = 0};
   struct R_inpstream_st in;
 
-  R_InitInPStream(&in, (R_pstream_data_t) &buf, R_pstream_any_format,
-                  mori_read_char, mori_read_bytes, NULL, R_NilValue);
+  R_InitInPStream(&in, (R_pstream_data_t) &buf, R_pstream_binary_format,
+                  NULL, mori_read_bytes, NULL, R_NilValue);
   return R_Unserialize(&in);
 }
 
