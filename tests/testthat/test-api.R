@@ -113,6 +113,30 @@ test_that("shared_name returns '' for a sub-list", {
   expect_identical(shared_name(sub), "")
 })
 
+test_that("share() is idempotent on already-shared objects", {
+  x <- share(as.double(1:100))
+  expect_identical(share(x), x)
+  expect_identical(shared_name(share(x)), shared_name(x))
+
+  s <- share(letters)
+  expect_identical(share(s), s)
+  expect_identical(shared_name(share(s)), shared_name(s))
+
+  L <- share(list(a = 1:3, b = c("x", "y")))
+  expect_identical(share(L), L)
+  expect_identical(shared_name(share(L)), shared_name(L))
+
+  y <- map_shared(shared_name(x))
+  expect_identical(share(y), y)
+  expect_identical(shared_name(share(y)), shared_name(y))
+
+  root <- share(list(v = 1:10, sub = list(a = 1:5, s = letters)))
+  sub <- root[[2L]]
+  expect_identical(share(sub), sub)
+  elt <- root[[1L]]
+  expect_identical(share(elt), elt)
+})
+
 test_that("is_shared/shared_name preserved after COW materialization", {
   x <- share(as.double(1:10))
   nm <- shared_name(x)

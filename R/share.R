@@ -25,6 +25,10 @@
 #' referenced in R, and is freed by the garbage collector when no
 #' references remain.
 #'
+#' `share()` is idempotent: calling it on an object that is already
+#' backed by shared memory returns the input unchanged without
+#' allocating a new region.
+#'
 #' **Important**: always assign the result of `share()` to a
 #' variable. The shared memory is kept alive by the R object reference —
 #' if the result is used as a temporary (not assigned), the garbage

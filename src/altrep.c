@@ -812,6 +812,11 @@ static SEXP mori_shm_create_string_call(SEXP x) {
 
 /* Unified entry point: dispatch by type */
 SEXP mori_create(SEXP x) {
+  if (ALTREP(x)) {
+    SEXP d1 = R_altrep_data1(x);
+    if (TYPEOF(d1) == EXTPTRSXP && R_ExternalPtrTag(d1) == mori_owned_tag)
+      return x;
+  }
   int type = TYPEOF(x);
   if (type == VECSXP || type == LISTSXP)
     return mori_shm_create_list_call(x);

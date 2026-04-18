@@ -42,6 +42,7 @@ devtools::document()
 
 All R exported functions are single `.Call` wrappers. `share()` calls `mori_create` which dispatches on `TYPEOF(x)`:
 
+0. If `x` is already a mori-backed ALTREP (detected via the `mori_owned_tag` on `R_altrep_data1(x)`), return `x` unchanged. This makes `share()` idempotent and also short-circuits re-sharing of sub-list views and element vectors extracted from an ALTLIST.
 1. `NILSXP` → returned as-is (falls through all checks).
 2. `VECSXP`/`LISTSXP` → `mori_shm_create_list_call` — ALTLIST with per-element directory. Writing is split into two passes: `mori_nested_size` computes the total SHM size (recursing into nested VECSXP/LISTSXP elements), and `mori_nested_write` produces a complete MORL region at the target base pointer, recursing into child VECSXP/LISTSXP elements by calling itself on `base + child_data_offset`. Each element is independently zero-copy (any atomic, with or without attributes), serialized as bytes, or a nested MORL region. Data frames and pairlists go through this path (pairlists are coerced to VECSXP via `Rf_coerceVector`, both at the top level and at each level of the recursion).
 3. `STRSXP` → `mori_shm_create_string_call` — ALTSTRING backed by SHM with offset table + packed string data. Attributes (if any) are serialized after the string data.
