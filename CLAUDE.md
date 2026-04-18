@@ -83,6 +83,11 @@ All R exported functions are single `.Call` wrappers.
 [`share()`](https://shikokuchuo.net/mori/reference/share.md) calls
 `mori_create` which dispatches on `TYPEOF(x)`:
 
+0.  If `x` is already a mori-backed ALTREP (detected via the
+    `mori_owned_tag` on `R_altrep_data1(x)`), return `x` unchanged. This
+    makes [`share()`](https://shikokuchuo.net/mori/reference/share.md)
+    idempotent and also short-circuits re-sharing of sub-list views and
+    element vectors extracted from an ALTLIST.
 1.  `NILSXP` → returned as-is (falls through all checks).
 2.  `VECSXP`/`LISTSXP` → `mori_shm_create_list_call` — ALTLIST with
     per-element directory. Writing is split into two passes:

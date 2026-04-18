@@ -80,7 +80,8 @@
 <div class="section level3">
 <h3 id="share-dispatch-logic-altrepc-mori_create">share() Dispatch Logic (altrep.c: <code>mori_create</code>)<a class="anchor" aria-label="anchor" href="#share-dispatch-logic-altrepc-mori_create"></a></h3>
 <p>All R exported functions are single <code>.Call</code> wrappers. <code><a href="reference/share.html">share()</a></code> calls <code>mori_create</code> which dispatches on <code>TYPEOF(x)</code>:</p>
-<ol style="list-style-type: decimal"><li>
+<ol start="0" style="list-style-type: decimal"><li>If <code>x</code> is already a mori-backed ALTREP (detected via the <code>mori_owned_tag</code> on <code>R_altrep_data1(x)</code>), return <code>x</code> unchanged. This makes <code><a href="reference/share.html">share()</a></code> idempotent and also short-circuits re-sharing of sub-list views and element vectors extracted from an ALTLIST.</li>
+<li>
 <code>NILSXP</code> → returned as-is (falls through all checks).</li>
 <li>
 <code>VECSXP</code>/<code>LISTSXP</code> → <code>mori_shm_create_list_call</code> — ALTLIST with per-element directory. Writing is split into two passes: <code>mori_nested_size</code> computes the total SHM size (recursing into nested VECSXP/LISTSXP elements), and <code>mori_nested_write</code> produces a complete MORL region at the target base pointer, recursing into child VECSXP/LISTSXP elements by calling itself on <code>base + child_data_offset</code>. Each element is independently zero-copy (any atomic, with or without attributes), serialized as bytes, or a nested MORL region. Data frames and pairlists go through this path (pairlists are coerced to VECSXP via <code>Rf_coerceVector</code>, both at the top level and at each level of the recursion).</li>
