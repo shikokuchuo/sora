@@ -7,12 +7,12 @@ Authors@R: c(
     person("Posit Software, PBC", role = c("cph", "fnd"),
            comment = c(ROR = "03wc8by49"))
   )
-Description: Share R objects across processes on the same machine without
-    copying. Uses 'POSIX' shared memory on Linux and macOS, and 'Win32'
-    file mappings on Windows, so that multiple R processes can read the
-    same physical memory pages. Integrates with the R 'ALTREP' framework for
-    lazy, zero-copy access, with shared objects serialized compactly by
-    their shared memory name rather than their full contents.
+Description: Share R objects across processes on the same machine via a
+    single copy in 'POSIX' shared memory (Linux, macOS) or a 'Win32' file
+    mapping (Windows). Every process reads from the same physical pages
+    through the R 'ALTREP' framework, giving lazy, zero-copy access.
+    Shared objects serialize compactly as their shared memory name rather
+    than their full contents.
 License: MIT + file LICENSE
 URL: https://shikokuchuo.net/mori/, https://github.com/shikokuchuo/mori
 BugReports: https://github.com/shikokuchuo/mori/issues

@@ -25,7 +25,7 @@ typedef struct {
   int64_t length;
 } mori_elem;
 
-// Zero-copy eligibility: any atomic vector (attributes stored separately) ----
+// SHM eligibility: any atomic vector (attributes stored separately) ---------
 
 static int mori_shm_eligible(int type) {
   return type == REALSXP || type == INTSXP || type == LGLSXP ||
@@ -711,7 +711,7 @@ static size_t mori_nested_write(unsigned char *base, SEXP x) {
   return cur;
 }
 
-/* Zero-copy: list/data frame to SHM (with transparent nested VECSXP) */
+/* Write list/data frame to SHM (with transparent nested VECSXP) */
 static SEXP mori_shm_create_list_call(SEXP x) {
 
   /* Coerce top-level pairlists to VECSXP so VECTOR_ELT/XLENGTH work */
@@ -735,7 +735,7 @@ static SEXP mori_shm_create_list_call(SEXP x) {
   return mori_make_result(&shm);
 }
 
-/* Zero-copy: atomic vector → 64-byte header + data (64-byte aligned) + attrs */
+/* Write atomic vector to SHM: 64-byte header + data (64-byte aligned) + attrs */
 static SEXP mori_shm_create_vector_call(SEXP x) {
 
   int type = TYPEOF(x);
@@ -773,7 +773,7 @@ static SEXP mori_shm_create_vector_call(SEXP x) {
   return mori_make_result(&shm);
 }
 
-/* Zero-copy: character vector → 24-byte header + offset table + strings + attrs */
+/* Write character vector to SHM: 24-byte header + offset table + strings + attrs */
 static SEXP mori_shm_create_string_call(SEXP x) {
 
   R_xlen_t n = XLENGTH(x);
