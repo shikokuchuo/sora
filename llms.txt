@@ -39,11 +39,10 @@ install.packages("mori")
 ### Quick Start
 
 [`share()`](https://shikokuchuo.net/mori/reference/share.md) writes an R
-object into shared memory and returns a shared version backed by
-zero-copy ALTREP. Shared objects serialize compactly via ALTREP
-serialization hooks, working transparently with mirai and any R
-serialization path. Shared memory is automatically freed when the object
-is garbage collected.
+object once into shared memory and returns a zero-copy ALTREP view.
+Shared objects serialize compactly via ALTREP serialization hooks,
+working transparently with mirai and any R serialization path. Shared
+memory is automatically freed when the object is garbage collected.
 
 ``` r
 library(mori)
