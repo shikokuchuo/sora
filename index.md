@@ -30,13 +30,13 @@ garbage collected
 
   
 
-### Installation
+## Installation
 
 ``` r
 install.packages("mori")
 ```
 
-### Quick Start
+## Quick Start
 
 [`share()`](https://shikokuchuo.net/mori/reference/share.md) writes an R
 object once into shared memory and returns a zero-copy ALTREP view.
@@ -50,14 +50,14 @@ library(mori)
 # Share a vector — returns an ALTREP-backed object
 x <- share(rnorm(1e6))
 mean(x)
-#> [1] -0.0001128046
+#> [1] 0.0007940251
 
 # Serialized form is ~100 bytes, not ~8 MB
 x |> serialize(NULL) |> length()
 #> [1] 124
 ```
 
-### Sharing by Name
+## Sharing by Name
 
 [`shared_name()`](https://shikokuchuo.net/mori/reference/shared_name.md)
 extracts the SHM name from a shared object.
@@ -71,7 +71,7 @@ x <- share(1:1e6)
 # Extract the SHM name
 nm <- shared_name(x)
 nm
-#> [1] "/mori_89bd_1"
+#> [1] "/mori_10d8_1"
 
 # Another process can map the same region by name
 y <- map_shared(nm)
@@ -79,7 +79,7 @@ identical(x[], y[])
 #> [1] TRUE
 ```
 
-### Use with mirai
+## Use with mirai
 
 Shared objects can be sent to local daemons — the ALTREP serialization
 hooks ensure only the SHM name crosses the wire, and the worker maps the
@@ -97,7 +97,7 @@ x <- share(rnorm(1e6))
 m <- mirai(list(mean = mean(x), size = lobstr::obj_size(x)), x = x)
 m[]
 #> $mean
-#> [1] 0.0001543878
+#> [1] 0.000601325
 #> 
 #> $size
 #> 840 B
@@ -123,7 +123,7 @@ mirai_map(x, \(v) lobstr::obj_size(v) |> format())[.flat]
 daemons(0)
 ```
 
-### Why mori
+## Why mori
 
 Parallel computing multiplies memory. When 8 workers each need the same
 210 MB dataset, that is 1.7 GB of serialization, transfer, and
@@ -148,19 +148,19 @@ boot_mean <- \(i, data) colMeans(data[sample(nrow(data), replace = TRUE), ])
 # Without mori — each daemon deserializes a full copy
 mirai_map(1:8, boot_mean, data = df)[] |> system.time()
 #>    user  system elapsed 
-#>   2.041  38.221   5.798
+#>   2.208  40.825   6.098
 
 # With mori — each daemon maps the same shared memory
 mirai_map(1:8, boot_mean, data = shared_df)[] |> system.time()
 #>    user  system elapsed 
-#>   1.330  25.847   3.878
+#>   1.456  28.489   4.087
 
 daemons(0)
 ```
 
-### How It Works
+## How It Works
 
-#### What gets shared
+### What gets shared
 
 All atomic vector types and lists / data frames are written directly
 into shared memory, with attributes (`class`, `names`, `dim`, `levels`,
@@ -182,13 +182,13 @@ Diagram showing share() writing an object once into OS-backed shared
 memory, which is then memory-mapped by other processes using zero-copy
 ALTREP wrappers
 
-#### Lazy access
+### Lazy access
 
 A data frame with 10 columns lives in a single shared region; a task
 that touches 3 columns pays for 3. Character strings are accessed lazily
 per element.
 
-#### Lifetime
+### Lifetime
 
 Shared memory is managed by R’s garbage collector. The SHM region stays
 alive as long as the shared object (or any element extracted from it) is
@@ -201,7 +201,7 @@ variable. The shared memory is kept alive by the R object reference — if
 the result is used as a temporary (not assigned), the garbage collector
 may free the shared memory before a consumer process has mapped it.
 
-#### Copy-on-write
+### Copy-on-write
 
 Shared data is mapped read-only. Mutations are always local — R’s
 copy-on-write mechanism ensures other processes continue reading the
