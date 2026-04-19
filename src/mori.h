@@ -43,6 +43,8 @@ typedef struct mori_list_view_s {
 int mori_shm_create(mori_shm *shm, size_t size);
 int mori_shm_open(mori_shm *shm, const char *name);
 void mori_shm_close(mori_shm *shm, int unlink);
+mori_shm *mori_shm_create_heap(size_t size);
+mori_shm *mori_shm_open_heap(const char *name);
 void mori_shm_finalizer(SEXP ptr);
 void mori_host_finalizer(SEXP ptr);
 

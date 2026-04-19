@@ -204,6 +204,31 @@ void mori_shm_close(mori_shm *shm, int unlink) {
 
 #endif /* _WIN32 */
 
+// Platform-independent heap-allocating variants ------------------------------
+
+/* Malloc a mori_shm and create the SHM region into it. Returns NULL on
+   either allocation or create failure (in which case nothing is leaked). */
+mori_shm *mori_shm_create_heap(size_t size) {
+  mori_shm *shm = malloc(sizeof(mori_shm));
+  if (!shm) return NULL;
+  if (mori_shm_create(shm, size) != 0) {
+    free(shm);
+    return NULL;
+  }
+  return shm;
+}
+
+/* Malloc a mori_shm and open an existing SHM region into it. */
+mori_shm *mori_shm_open_heap(const char *name) {
+  mori_shm *shm = malloc(sizeof(mori_shm));
+  if (!shm) return NULL;
+  if (mori_shm_open(shm, name) != 0) {
+    free(shm);
+    return NULL;
+  }
+  return shm;
+}
+
 // Platform-independent finalizers --------------------------------------------
 
 /* Daemon-side finalizer: unmap only, don't unlink (host manages lifetime) */
