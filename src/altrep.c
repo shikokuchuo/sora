@@ -461,41 +461,47 @@ static SEXP mori_list_Duplicate(SEXP x, Rboolean deep) {
   return result;
 }
 
-static SEXP mori_dispatch_by_magic(mori_shm *shm, const char *err_name);
+static SEXP mori_dispatch_by_magic(SEXP shm_ptr, const char *err_name);
 
-// Host-side result helper: GC-chained SHM cleanup -----------------------------
+// SHM keeper wrappers: transfer heap mori_shm ownership to R -----------------
 
-/* Allocate heap copy of shm and wrap in extptr with shm_tag + finalizer. */
-static inline SEXP mori_make_shm_ptr(mori_shm *shm_stack) {
-  mori_shm *shm = (mori_shm *) malloc(sizeof(mori_shm));
-  if (!shm) Rf_error("mori:allocation failure");
-  memcpy(shm, shm_stack, sizeof(mori_shm));
-  SEXP ptr = R_MakeExternalPtr(shm, mori_shm_tag, R_NilValue);
+/* Consumer-side: single shm_tag extptr with munmap-only finalizer. Takes
+   ownership of heap; the returned SEXP's finalizer frees it on GC. */
+static SEXP mori_wrap_shm_consumer(mori_shm *heap) {
+  SEXP ptr = R_MakeExternalPtr(heap, mori_shm_tag, R_NilValue);
   R_RegisterCFinalizerEx(ptr, mori_shm_finalizer, TRUE);
   return ptr;
 }
 
-static SEXP mori_make_result(mori_shm *shm) {
+/* Producer-side: shm_tag extptr (munmap finalizer) chained to a host_tag
+   extptr (unlink / CloseHandle finalizer) via its protected slot. Takes
+   ownership of heap. The host copy gets the name / Windows handle; heap
+   keeps only the mapping, so munmap and unlink fire independently. */
+static SEXP mori_wrap_shm_producer(mori_shm *heap) {
 
-  /* Heap-allocate for host finalizer: unlink only, no munmap */
   mori_shm *host = (mori_shm *) malloc(sizeof(mori_shm));
   if (!host) Rf_error("mori:allocation failure");
-  memcpy(host, shm, sizeof(mori_shm));
+  memcpy(host, heap, sizeof(mori_shm));
   host->addr = NULL;
   host->size = 0;
 #ifdef _WIN32
-  shm->handle = NULL;
+  heap->handle = NULL;
 #endif
 
   SEXP host_ptr = PROTECT(R_MakeExternalPtr(host, mori_host_tag, R_NilValue));
   R_RegisterCFinalizerEx(host_ptr, mori_host_finalizer, TRUE);
 
-  SEXP result = PROTECT(mori_dispatch_by_magic(shm, NULL));
-  /* Chain: data1's keeper (shm_ptr) protects host_ptr */
-  R_SetExternalPtrProtected(
-    R_ExternalPtrProtected(R_altrep_data1(result)), host_ptr);
+  SEXP shm_ptr = R_MakeExternalPtr(heap, mori_shm_tag, host_ptr);
+  R_RegisterCFinalizerEx(shm_ptr, mori_shm_finalizer, TRUE);
 
-  UNPROTECT(2);
+  UNPROTECT(1);
+  return shm_ptr;
+}
+
+static SEXP mori_make_result(mori_shm *heap) {
+  SEXP shm_ptr = PROTECT(mori_wrap_shm_producer(heap));
+  SEXP result = mori_dispatch_by_magic(shm_ptr, NULL);
+  UNPROTECT(1);
   return result;
 }
 
@@ -706,14 +712,14 @@ static SEXP mori_shm_create_list_call(SEXP x) {
 
   size_t total = mori_nested_size(x);
 
-  mori_shm shm;
-  if (mori_shm_create(&shm, total) != 0)
+  mori_shm *shm = mori_shm_create_heap(total);
+  if (!shm)
     Rf_error("mori:failed to create shared memory");
 
-  mori_nested_write((unsigned char *) shm.addr, x);
+  mori_nested_write((unsigned char *) shm->addr, x);
 
   UNPROTECT(1);
-  return mori_make_result(&shm);
+  return mori_make_result(shm);
 }
 
 /* Write atomic vector to SHM: 64-byte header + data (64-byte aligned) + attrs */
@@ -728,11 +734,11 @@ static SEXP mori_shm_create_vector_call(SEXP x) {
   size_t attrs_size = (attrs != R_NilValue) ? mori_serialize_count(attrs) : 0;
   size_t total = 64 + data_size + attrs_size;
 
-  mori_shm shm;
-  if (mori_shm_create(&shm, total) != 0)
+  mori_shm *shm = mori_shm_create_heap(total);
+  if (!shm)
     Rf_error("mori:failed to create shared memory");
 
-  unsigned char *base = (unsigned char *) shm.addr;
+  unsigned char *base = (unsigned char *) shm->addr;
 
   /* Zero-fill header, then write fields */
   memset(base, 0, 64);
@@ -751,7 +757,7 @@ static SEXP mori_shm_create_vector_call(SEXP x) {
     mori_serialize_into(base + 64 + data_size, attrs_size, attrs);
 
   UNPROTECT(1);
-  return mori_make_result(&shm);
+  return mori_make_result(shm);
 }
 
 /* Write character vector to SHM: 24-byte header + offset table + strings + attrs */
@@ -765,11 +771,11 @@ static SEXP mori_shm_create_string_call(SEXP x) {
   size_t attrs_size = (attrs != R_NilValue) ? mori_serialize_count(attrs) : 0;
   size_t total = header_size + str_size + attrs_size;
 
-  mori_shm shm;
-  if (mori_shm_create(&shm, total) != 0)
+  mori_shm *shm = mori_shm_create_heap(total);
+  if (!shm)
     Rf_error("mori:failed to create shared memory");
 
-  unsigned char *base = (unsigned char *) shm.addr;
+  unsigned char *base = (unsigned char *) shm->addr;
 
   /* Write header */
   memset(base, 0, header_size);
@@ -788,7 +794,7 @@ static SEXP mori_shm_create_string_call(SEXP x) {
     mori_serialize_into(base + header_size + str_size, attrs_size, attrs);
 
   UNPROTECT(1);
-  return mori_make_result(&shm);
+  return mori_make_result(shm);
 }
 
 /* Unified entry point: dispatch by type */
@@ -810,26 +816,20 @@ SEXP mori_create(SEXP x) {
 
 // .Call entry points: daemon-side SHM open and wrap --------------------------
 
-/* Open SHM and create ALTLIST wrapper (root view, index = -1) */
-static SEXP mori_open_list(mori_shm *shm_stack) {
+/* All three open_* take an already-wrapped shm_ptr (shm_tag extptr) that the
+   caller has PROTECTed. The shm_ptr flows through as the keeper for the
+   returned ALTREP's data1 extptr, pinning the mapping to its lifetime. */
 
-  SEXP shm_ptr = PROTECT(mori_make_shm_ptr(shm_stack));
+static SEXP mori_open_list(SEXP shm_ptr) {
   mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(shm_ptr);
-
-  SEXP result = mori_make_list_view(
+  return mori_make_list_view(
     (unsigned char *) shm->addr, (int64_t) shm->size, -1, shm_ptr
   );
-
-  UNPROTECT(1);
-  return result;
 }
 
-/* Open SHM and create ALTREP vector wrapper */
-static SEXP mori_open_vector(mori_shm *shm_stack) {
+static SEXP mori_open_vector(SEXP shm_ptr) {
 
-  SEXP shm_ptr = PROTECT(mori_make_shm_ptr(shm_stack));
   mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(shm_ptr);
-
   unsigned char *base = (unsigned char *) shm->addr;
   int32_t sexptype;
   int64_t length, attrs_size;
@@ -841,22 +841,18 @@ static SEXP mori_open_vector(mori_shm *shm_stack) {
     base + 64, (R_xlen_t) length, sexptype, shm_ptr
   ));
 
-  /* Restore attributes */
   if (attrs_size > 0) {
     size_t data_bytes = (size_t) length * mori_sizeof_elt(sexptype);
     mori_restore_attrs(result, base + 64 + data_bytes, (size_t) attrs_size);
   }
 
-  UNPROTECT(2);
+  UNPROTECT(1);
   return result;
 }
 
-/* Open SHM and create ALTREP string wrapper */
-static SEXP mori_open_string(mori_shm *shm_stack) {
+static SEXP mori_open_string(SEXP shm_ptr) {
 
-  SEXP shm_ptr = PROTECT(mori_make_shm_ptr(shm_stack));
   mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(shm_ptr);
-
   unsigned char *base = (unsigned char *) shm->addr;
   int32_t attrs_size;
   int64_t n, str_data_size;
@@ -868,26 +864,25 @@ static SEXP mori_open_string(mori_shm *shm_stack) {
     base + 24, (R_xlen_t) n, shm_ptr
   ));
 
-  /* Restore attributes */
   if (attrs_size > 0)
     mori_restore_attrs(result, base + 24 + (size_t) str_data_size,
                        (size_t) attrs_size);
 
-  UNPROTECT(2);
+  UNPROTECT(1);
   return result;
 }
 
 /* Dispatch on magic bytes and wrap in the appropriate ALTREP class.
-   On unknown magic, closes shm and errors. err_name is used in the
-   error message ("" if caller has no name to report). */
-static SEXP mori_dispatch_by_magic(mori_shm *shm, const char *err_name) {
+   On unknown magic, errors — GC cleans up shm_ptr's finalizer after longjmp.
+   err_name is used in the error message ("" if caller has no name to report). */
+static SEXP mori_dispatch_by_magic(SEXP shm_ptr, const char *err_name) {
+  mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(shm_ptr);
   unsigned char *base = (unsigned char *) shm->addr;
   uint32_t magic;
   memcpy(&magic, base, 4);
-  if (magic == 0x4D4F524Cu) return mori_open_list(shm);
-  if (magic == 0x4D4F5248u) return mori_open_vector(shm);
-  if (magic == 0x4D4F5253u) return mori_open_string(shm);
-  mori_shm_close(shm, 0);
+  if (magic == 0x4D4F524Cu) return mori_open_list(shm_ptr);
+  if (magic == 0x4D4F5248u) return mori_open_vector(shm_ptr);
+  if (magic == 0x4D4F5253u) return mori_open_string(shm_ptr);
   Rf_error("mori:invalid or corrupted shared memory region: '%s'",
            err_name != NULL ? err_name : "");
 }
@@ -907,11 +902,14 @@ SEXP mori_shm_open_and_wrap(SEXP name) {
   if (!mori_is_shm_name(nm))
     return R_NilValue;
 
-  mori_shm shm;
-  if (mori_shm_open(&shm, nm) != 0)
+  mori_shm *heap = mori_shm_open_heap(nm);
+  if (!heap)
     Rf_error("mori:shared memory region not found: '%s'", nm);
 
-  return mori_dispatch_by_magic(&shm, nm);
+  SEXP shm_ptr = PROTECT(mori_wrap_shm_consumer(heap));
+  SEXP result = mori_dispatch_by_magic(shm_ptr, nm);
+  UNPROTECT(1);
+  return result;
 }
 
 SEXP mori_is_shared(SEXP x) {
@@ -1071,34 +1069,24 @@ static SEXP mori_open_path(SEXP name, SEXP path_sxp) {
 
   const char *nm = CHAR(STRING_ELT(name, 0));
 
-  mori_shm shm_stack;
-  if (mori_shm_open(&shm_stack, nm) != 0)
+  mori_shm *heap = mori_shm_open_heap(nm);
+  if (!heap)
     Rf_error("mori:failed to open shared memory '%s'", nm);
 
-  unsigned char *base = (unsigned char *) shm_stack.addr;
+  SEXP shm_ptr = PROTECT(mori_wrap_shm_consumer(heap));
+
+  unsigned char *base = (unsigned char *) heap->addr;
   uint32_t magic;
   memcpy(&magic, base, 4);
-  if (magic != 0x4D4F524Cu) {
-    mori_shm_close(&shm_stack, 0);
-    Rf_error("mori:not a list region");
-  }
-
-  mori_shm *shm = (mori_shm *) malloc(sizeof(mori_shm));
-  if (!shm) {
-    mori_shm_close(&shm_stack, 0);
-    Rf_error("mori:allocation failure");
-  }
-  memcpy(shm, &shm_stack, sizeof(mori_shm));
-
-  SEXP shm_ptr = PROTECT(R_MakeExternalPtr(shm, mori_shm_tag, R_NilValue));
-  R_RegisterCFinalizerEx(shm_ptr, mori_shm_finalizer, TRUE);
+  if (magic != 0x4D4F524Cu)
+    Rf_error("mori:not a list region");  /* GC reclaims shm_ptr via longjmp */
 
   int path_len = (int) XLENGTH(path_sxp);
   const int *path = INTEGER(path_sxp);
 
   SEXP keeper = shm_ptr;
   unsigned char *cur_base = base;
-  int64_t cur_region_size = (int64_t) shm_stack.size;
+  int64_t cur_region_size = (int64_t) heap->size;
   int32_t cur_n;
   memcpy(&cur_n, cur_base + 4, 4);
 
