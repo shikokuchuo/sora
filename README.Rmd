@@ -42,13 +42,13 @@ Shared Memory for R Objects
 
 <br />
 
-### Installation
+## Installation
 
 ``` r
 install.packages("mori")
 ```
 
-### Quick Start
+## Quick Start
 
 `share()` writes an R object once into shared memory and returns a
 zero-copy ALTREP view. Shared objects serialize compactly
@@ -67,7 +67,7 @@ mean(x)
 x |> serialize(NULL) |> length()
 ```
 
-### Sharing by Name
+## Sharing by Name
 
 `shared_name()` extracts the SHM name from a shared object.
 `map_shared()` opens a shared region by name — useful for accessing
@@ -85,7 +85,7 @@ y <- map_shared(nm)
 identical(x[], y[])
 ```
 
-### Use with mirai
+## Use with mirai
 
 Shared objects can be sent to local daemons — the ALTREP serialization
 hooks ensure only the SHM name crosses the wire, and the worker maps
@@ -123,7 +123,7 @@ daemons(0)
 ```
 
 
-### Why mori
+## Why mori
 
 Parallel computing multiplies memory. When 8 workers each need the same
 210 MB dataset, that is 1.7 GB of serialization, transfer, and
@@ -152,9 +152,9 @@ mirai_map(1:8, boot_mean, data = shared_df)[] |> system.time()
 daemons(0)
 ```
 
-### How It Works
+## How It Works
 
-#### What gets shared
+### What gets shared
 
 All atomic vector types and lists / data frames are written directly
 into shared memory, with attributes (`class`, `names`, `dim`, `levels`,
@@ -167,13 +167,13 @@ returned unchanged by `share()` — no shared memory region is created.
 
 ![Diagram showing share() writing an object once into OS-backed shared memory, which is then memory-mapped by other processes using zero-copy ALTREP wrappers](man/figures/mori-diagram.svg)
 
-#### Lazy access
+### Lazy access
 
 A data frame with 10 columns lives in a single shared region; a task
 that touches 3 columns pays for 3. Character strings are accessed
 lazily per element.
 
-#### Lifetime
+### Lifetime
 
 Shared memory is managed by R's garbage collector. The SHM region stays
 alive as long as the shared object (or any element extracted from it)
@@ -185,7 +185,7 @@ shared memory is kept alive by the R object reference — if the result
 is used as a temporary (not assigned), the garbage collector may free
 the shared memory before a consumer process has mapped it.
 
-#### Copy-on-write
+### Copy-on-write
 
 Shared data is mapped read-only. Mutations are always local — R's
 copy-on-write mechanism ensures other processes continue reading the
