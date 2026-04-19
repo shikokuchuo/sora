@@ -466,40 +466,40 @@ static SEXP mori_dispatch_by_magic(SEXP shm_ptr, const char *err_name);
 // SHM keeper wrappers: transfer heap mori_shm ownership to R -----------------
 
 /* Consumer-side: single shm_tag extptr with munmap-only finalizer. Takes
-   ownership of heap; the returned SEXP's finalizer frees it on GC. */
-static SEXP mori_wrap_shm_consumer(mori_shm *heap) {
-  SEXP ptr = R_MakeExternalPtr(heap, mori_shm_tag, R_NilValue);
+   ownership of shm; the returned SEXP's finalizer frees it on GC. */
+static SEXP mori_shm_wrap_consumer(mori_shm *shm) {
+  SEXP ptr = R_MakeExternalPtr(shm, mori_shm_tag, R_NilValue);
   R_RegisterCFinalizerEx(ptr, mori_shm_finalizer, TRUE);
   return ptr;
 }
 
 /* Producer-side: shm_tag extptr (munmap finalizer) chained to a host_tag
    extptr (unlink / CloseHandle finalizer) via its protected slot. Takes
-   ownership of heap. The host copy gets the name / Windows handle; heap
+   ownership of shm. The host copy gets the name / Windows handle; shm
    keeps only the mapping, so munmap and unlink fire independently. */
-static SEXP mori_wrap_shm_producer(mori_shm *heap) {
+static SEXP mori_shm_wrap_producer(mori_shm *shm) {
 
   mori_shm *host = malloc(sizeof(mori_shm));
   if (!host) Rf_error("mori:allocation failure");
-  memcpy(host, heap, sizeof(mori_shm));
+  memcpy(host, shm, sizeof(mori_shm));
   host->addr = NULL;
   host->size = 0;
 #ifdef _WIN32
-  heap->handle = NULL;
+  shm->handle = NULL;
 #endif
 
   SEXP host_ptr = PROTECT(R_MakeExternalPtr(host, mori_host_tag, R_NilValue));
   R_RegisterCFinalizerEx(host_ptr, mori_host_finalizer, TRUE);
 
-  SEXP shm_ptr = R_MakeExternalPtr(heap, mori_shm_tag, host_ptr);
+  SEXP shm_ptr = R_MakeExternalPtr(shm, mori_shm_tag, host_ptr);
   R_RegisterCFinalizerEx(shm_ptr, mori_shm_finalizer, TRUE);
 
   UNPROTECT(1);
   return shm_ptr;
 }
 
-static SEXP mori_make_result(mori_shm *heap) {
-  SEXP shm_ptr = PROTECT(mori_wrap_shm_producer(heap));
+static SEXP mori_make_result(mori_shm *shm) {
+  SEXP shm_ptr = PROTECT(mori_shm_wrap_producer(shm));
   SEXP result = mori_dispatch_by_magic(shm_ptr, NULL);
   UNPROTECT(1);
   return result;
@@ -902,11 +902,11 @@ SEXP mori_shm_open_and_wrap(SEXP name) {
   if (!mori_is_shm_name(nm))
     return R_NilValue;
 
-  mori_shm *heap = mori_shm_open_heap(nm);
-  if (!heap)
+  mori_shm *shm = mori_shm_open_heap(nm);
+  if (!shm)
     Rf_error("mori:shared memory region not found: '%s'", nm);
 
-  SEXP shm_ptr = PROTECT(mori_wrap_shm_consumer(heap));
+  SEXP shm_ptr = PROTECT(mori_shm_wrap_consumer(shm));
   SEXP result = mori_dispatch_by_magic(shm_ptr, nm);
   UNPROTECT(1);
   return result;
@@ -984,8 +984,7 @@ static SEXP mori_vec_Serialized_state(SEXP x) {
 
   if (v->index == -1) {
     /* Standalone: prot is shm extptr by construction; name is live. */
-    mori_shm *shm = (mori_shm *)
-      R_ExternalPtrAddr(R_ExternalPtrProtected(data1));
+    mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(R_ExternalPtrProtected(data1));
     return Rf_mkString(shm->name);
   }
 
@@ -1011,8 +1010,7 @@ static SEXP mori_string_Serialized_state(SEXP x) {
 
   if (s->index == -1) {
     /* Standalone: prot is shm extptr by construction; name is live. */
-    mori_shm *shm = (mori_shm *)
-      R_ExternalPtrAddr(R_ExternalPtrProtected(data1));
+    mori_shm *shm = (mori_shm *) R_ExternalPtrAddr(R_ExternalPtrProtected(data1));
     return Rf_mkString(shm->name);
   }
 
@@ -1069,13 +1067,13 @@ static SEXP mori_open_path(SEXP name, SEXP path_sxp) {
 
   const char *nm = CHAR(STRING_ELT(name, 0));
 
-  mori_shm *heap = mori_shm_open_heap(nm);
-  if (!heap)
+  mori_shm *shm = mori_shm_open_heap(nm);
+  if (!shm)
     Rf_error("mori:failed to open shared memory '%s'", nm);
 
-  SEXP shm_ptr = PROTECT(mori_wrap_shm_consumer(heap));
+  SEXP shm_ptr = PROTECT(mori_shm_wrap_consumer(shm));
 
-  unsigned char *base = (unsigned char *) heap->addr;
+  unsigned char *base = (unsigned char *) shm->addr;
   uint32_t magic;
   memcpy(&magic, base, 4);
   if (magic != 0x4D4F524Cu)
@@ -1086,7 +1084,7 @@ static SEXP mori_open_path(SEXP name, SEXP path_sxp) {
 
   SEXP keeper = shm_ptr;
   unsigned char *cur_base = base;
-  int64_t cur_region_size = (int64_t) heap->size;
+  int64_t cur_region_size = (int64_t) shm->size;
   int32_t cur_n;
   memcpy(&cur_n, cur_base + 4, 4);
 
