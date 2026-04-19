@@ -164,7 +164,7 @@ static SEXP mori_make_vector(const void *data, R_xlen_t length,
   default:       Rf_error("mori:unsupported ALTREP type %d", sexptype);
   }
 
-  mori_vec *v = (mori_vec *) malloc(sizeof(mori_vec));
+  mori_vec *v = malloc(sizeof(mori_vec));
   if (!v) Rf_error("mori:allocation failure");
   v->data = data;
   v->length = length;
@@ -264,7 +264,7 @@ static SEXP mori_string_Duplicate(SEXP x, Rboolean deep) {
 static SEXP mori_make_string(const unsigned char *region_base,
                              R_xlen_t n, SEXP keeper) {
 
-  mori_str *s = (mori_str *) malloc(sizeof(mori_str));
+  mori_str *s = malloc(sizeof(mori_str));
   if (!s) Rf_error("mori:allocation failure");
 
   size_t table_size = 16 * (size_t) n;
@@ -380,7 +380,7 @@ static SEXP mori_make_list_view(unsigned char *base, int64_t region_size,
       attrs_offset + attrs_size > region_size)
     Rf_error("mori:nested list attrs out of bounds");
 
-  mori_list_view *v = (mori_list_view *) malloc(sizeof(mori_list_view));
+  mori_list_view *v = malloc(sizeof(mori_list_view));
   if (!v) Rf_error("mori:allocation failure");
   v->base = base;
   v->region_size = region_size;
@@ -479,7 +479,7 @@ static SEXP mori_wrap_shm_consumer(mori_shm *heap) {
    keeps only the mapping, so munmap and unlink fire independently. */
 static SEXP mori_wrap_shm_producer(mori_shm *heap) {
 
-  mori_shm *host = (mori_shm *) malloc(sizeof(mori_shm));
+  mori_shm *host = malloc(sizeof(mori_shm));
   if (!host) Rf_error("mori:allocation failure");
   memcpy(host, heap, sizeof(mori_shm));
   host->addr = NULL;
