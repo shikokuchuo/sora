@@ -1,6 +1,6 @@
 Package: mori
 Title: Shared Memory for R Objects
-Version: 0.0.1.9000
+Version: 0.1.0
 Authors@R: c(
     person("Charlie", "Gao", , "charlie.gao@posit.co", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-0750-061X")),
@@ -10,14 +10,14 @@ Authors@R: c(
 Description: Share R objects across processes on the same machine via a
     single copy in 'POSIX' shared memory (Linux, macOS) or a 'Win32' file
     mapping (Windows). Every process reads from the same physical pages
-    through the R 'ALTREP' framework, giving lazy, zero-copy access.
-    Shared objects serialize compactly as their shared memory name rather
-    than their full contents.
+    through the R Alternative Representation ('ALTREP') framework, giving
+    lazy, zero-copy access. Shared objects serialize compactly as their
+    shared memory name rather than their full contents.
 License: MIT + file LICENSE
 URL: https://shikokuchuo.net/mori/, https://github.com/shikokuchuo/mori
 BugReports: https://github.com/shikokuchuo/mori/issues
 Depends:
-    R (>= 4.3.0)
+    R (>= 4.3)
 Suggests:
     lobstr,
     mirai,
