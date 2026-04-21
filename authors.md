@@ -11,7 +11,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/shikokuchuo/mori/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/shikokuchuo/mori/blob/v0.1.0/DESCRIPTION)
 
 Gao C (2026). *mori: Shared Memory for R Objects*. R package version
 0.1.0, <https://shikokuchuo.net/mori/>.
