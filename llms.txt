@@ -50,7 +50,7 @@ library(mori)
 # Share a vector — returns an ALTREP-backed object
 x <- share(rnorm(1e6))
 mean(x)
-#> [1] 0.0007940251
+#> [1] 0.0005982035
 
 # Serialized form is ~100 bytes, not ~8 MB
 x |> serialize(NULL) |> length()
@@ -71,7 +71,7 @@ x <- share(1:1e6)
 # Extract the SHM name
 nm <- shared_name(x)
 nm
-#> [1] "/mori_10d8_1"
+#> [1] "/mori_4c0f_1"
 
 # Another process can map the same region by name
 y <- map_shared(nm)
@@ -82,7 +82,7 @@ identical(x[], y[])
 ## Use with mirai
 
 Shared objects can be sent to local daemons — the ALTREP serialization
-hooks ensure only the SHM name crosses the wire, and the worker maps the
+hooks ensure only the SHM name crosses the wire, and the daemon maps the
 same physical memory.
 
 ``` r
@@ -97,7 +97,7 @@ x <- share(rnorm(1e6))
 m <- mirai(list(mean = mean(x), size = lobstr::obj_size(x)), x = x)
 m[]
 #> $mean
-#> [1] 0.000601325
+#> [1] 0.0008675476
 #> 
 #> $size
 #> 840 B
@@ -127,14 +127,14 @@ daemons(0)
 
 Parallel computing multiplies memory. When 8 workers each need the same
 210 MB dataset, that is 1.7 GB of serialization, transfer, and
-deserialization — plus 8 separate copies consuming RAM.
+deserialization — with 8 separate copies consuming RAM.
 
 mori eliminates all of it.
 [`share()`](https://shikokuchuo.net/mori/reference/share.md) writes data
 into shared memory once. Each worker maps the same physical pages,
 receiving a reference of ~300 bytes instead of the full dataset — a
 payload ~700,000 times smaller, which translates into a significant
-saving in total runtime:
+saving in memory usage as well as total runtime:
 
 ``` r
 daemons(8)
@@ -148,12 +148,12 @@ boot_mean <- \(i, data) colMeans(data[sample(nrow(data), replace = TRUE), ])
 # Without mori — each daemon deserializes a full copy
 mirai_map(1:8, boot_mean, data = df)[] |> system.time()
 #>    user  system elapsed 
-#>   2.208  40.825   6.098
+#>   2.135  38.222   5.823
 
 # With mori — each daemon maps the same shared memory
 mirai_map(1:8, boot_mean, data = shared_df)[] |> system.time()
 #>    user  system elapsed 
-#>   1.456  28.489   4.087
+#>   1.377  27.121   3.949
 
 daemons(0)
 ```
@@ -163,8 +163,8 @@ daemons(0)
 ### What gets shared
 
 All atomic vector types and lists / data frames are written directly
-into shared memory, with attributes (`class`, `names`, `dim`, `levels`,
-`tzone`, …) preserved end-to-end. Pairlists are coerced to lists.
+into shared memory, with attributes preserved end-to-end. Pairlists are
+coerced to lists.
 [`share()`](https://shikokuchuo.net/mori/reference/share.md) returns
 ALTREP wrappers that point into the shared pages — no deserialization,
 no per-process memory allocation.
@@ -184,7 +184,7 @@ ALTREP wrappers
 
 ### Lazy access
 
-A data frame with 10 columns lives in a single shared region; a task
+A data frame with 10 columns lives in a single shared region. A task
 that touches 3 columns pays for 3. Character strings are accessed lazily
 per element.
 
@@ -198,8 +198,8 @@ the shared memory automatically.
 **Important:** Always assign the result of
 [`share()`](https://shikokuchuo.net/mori/reference/share.md) to a
 variable. The shared memory is kept alive by the R object reference — if
-the result is used as a temporary (not assigned), the garbage collector
-may free the shared memory before a consumer process has mapped it.
+the result is used temporarily (not assigned), the garbage collector may
+free the shared memory before a consumer process has mapped it.
 
 ### Copy-on-write
 

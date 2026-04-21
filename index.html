@@ -13,8 +13,8 @@
 <link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Shared Memory for R Objects">
-<meta name="description" content="Share R objects across processes on the same machine via a single copy in POSIX shared memory (Linux, macOS) or a Win32 file mapping (Windows). Every process reads from the same physical pages through the R ALTREP framework, giving lazy, zero-copy access. Shared objects serialize compactly as their shared memory name rather than their full contents.">
-<meta property="og:description" content="Share R objects across processes on the same machine via a single copy in POSIX shared memory (Linux, macOS) or a Win32 file mapping (Windows). Every process reads from the same physical pages through the R ALTREP framework, giving lazy, zero-copy access. Shared objects serialize compactly as their shared memory name rather than their full contents.">
+<meta name="description" content="Share R objects across processes on the same machine via a single copy in POSIX shared memory (Linux, macOS) or a Win32 file mapping (Windows). Every process reads from the same physical pages through the R Alternative Representation (ALTREP) framework, giving lazy, zero-copy access. Shared objects serialize compactly as their shared memory name rather than their full contents.">
+<meta property="og:description" content="Share R objects across processes on the same machine via a single copy in POSIX shared memory (Linux, macOS) or a Win32 file mapping (Windows). Every process reads from the same physical pages through the R Alternative Representation (ALTREP) framework, giving lazy, zero-copy access. Shared objects serialize compactly as their shared memory name rather than their full contents.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -24,7 +24,7 @@
 
     <a class="navbar-brand me-2" href="index.html">mori</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -90,7 +90,7 @@
 <span><span class="co"># Share a vector — returns an ALTREP-backed object</span></span>
 <span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/share.html">share</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">1e6</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 0.0007940251</span></span>
+<span><span class="co">#&gt; [1] 0.0005982035</span></span>
 <span></span>
 <span><span class="co"># Serialized form is ~100 bytes, not ~8 MB</span></span>
 <span><span class="va">x</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/serialize.html" class="external-link">serialize</a></span><span class="op">(</span><span class="cn">NULL</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="op">)</span></span>
@@ -106,7 +106,7 @@
 <span><span class="co"># Extract the SHM name</span></span>
 <span><span class="va">nm</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/shared_name.html">shared_name</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span><span class="va">nm</span></span>
-<span><span class="co">#&gt; [1] "/mori_10d8_1"</span></span>
+<span><span class="co">#&gt; [1] "/mori_4c0f_1"</span></span>
 <span></span>
 <span><span class="co"># Another process can map the same region by name</span></span>
 <span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/map_shared.html">map_shared</a></span><span class="op">(</span><span class="va">nm</span><span class="op">)</span></span>
@@ -116,7 +116,7 @@
 <div class="section level2">
 <h2 id="use-with-mirai">Use with mirai<a class="anchor" aria-label="anchor" href="#use-with-mirai"></a>
 </h2>
-<p>Shared objects can be sent to local daemons — the ALTREP serialization hooks ensure only the SHM name crosses the wire, and the worker maps the same physical memory.</p>
+<p>Shared objects can be sent to local daemons — the ALTREP serialization hooks ensure only the SHM name crosses the wire, and the daemon maps the same physical memory.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://lobstr.r-lib.org/" class="external-link">lobstr</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://mirai.r-lib.org" class="external-link">mirai</a></span><span class="op">)</span></span>
@@ -129,7 +129,7 @@
 <span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://mirai.r-lib.org/reference/mirai.html" class="external-link">mirai</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>, size <span class="op">=</span> <span class="fu">lobstr</span><span class="fu">::</span><span class="fu"><a href="https://lobstr.r-lib.org/reference/obj_size.html" class="external-link">obj_size</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span><span class="op">)</span>, x <span class="op">=</span> <span class="va">x</span><span class="op">)</span></span>
 <span><span class="va">m</span><span class="op">[</span><span class="op">]</span></span>
 <span><span class="co">#&gt; $mean</span></span>
-<span><span class="co">#&gt; [1] 0.000601325</span></span>
+<span><span class="co">#&gt; [1] 0.0008675476</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $size</span></span>
 <span><span class="co">#&gt; 840 B</span></span>
@@ -152,8 +152,8 @@
 <div class="section level2">
 <h2 id="why-mori">Why mori<a class="anchor" aria-label="anchor" href="#why-mori"></a>
 </h2>
-<p>Parallel computing multiplies memory. When 8 workers each need the same 210 MB dataset, that is 1.7 GB of serialization, transfer, and deserialization — plus 8 separate copies consuming RAM.</p>
-<p>mori eliminates all of it. <code><a href="reference/share.html">share()</a></code> writes data into shared memory once. Each worker maps the same physical pages, receiving a reference of ~300 bytes instead of the full dataset — a payload ~700,000 times smaller, which translates into a significant saving in total runtime:</p>
+<p>Parallel computing multiplies memory. When 8 workers each need the same 210 MB dataset, that is 1.7 GB of serialization, transfer, and deserialization — with 8 separate copies consuming RAM.</p>
+<p>mori eliminates all of it. <code><a href="reference/share.html">share()</a></code> writes data into shared memory once. Each worker maps the same physical pages, receiving a reference of ~300 bytes instead of the full dataset — a payload ~700,000 times smaller, which translates into a significant saving in memory usage as well as total runtime:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://mirai.r-lib.org/reference/daemons.html" class="external-link">daemons</a></span><span class="op">(</span><span class="fl">8</span><span class="op">)</span></span>
 <span></span>
@@ -166,12 +166,12 @@
 <span><span class="co"># Without mori — each daemon deserializes a full copy</span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/mirai_map.html" class="external-link">mirai_map</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">8</span>, <span class="va">boot_mean</span>, data <span class="op">=</span> <span class="va">df</span><span class="op">)</span><span class="op">[</span><span class="op">]</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    user  system elapsed </span></span>
-<span><span class="co">#&gt;   2.208  40.825   6.098</span></span>
+<span><span class="co">#&gt;   2.135  38.222   5.823</span></span>
 <span></span>
 <span><span class="co"># With mori — each daemon maps the same shared memory</span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/mirai_map.html" class="external-link">mirai_map</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">8</span>, <span class="va">boot_mean</span>, data <span class="op">=</span> <span class="va">shared_df</span><span class="op">)</span><span class="op">[</span><span class="op">]</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    user  system elapsed </span></span>
-<span><span class="co">#&gt;   1.456  28.489   4.087</span></span>
+<span><span class="co">#&gt;   1.377  27.121   3.949</span></span>
 <span></span>
 <span><span class="fu"><a href="https://mirai.r-lib.org/reference/daemons.html" class="external-link">daemons</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -181,7 +181,7 @@
 <div class="section level3">
 <h3 id="what-gets-shared">What gets shared<a class="anchor" aria-label="anchor" href="#what-gets-shared"></a>
 </h3>
-<p>All atomic vector types and lists / data frames are written directly into shared memory, with attributes (<code>class</code>, <code>names</code>, <code>dim</code>, <code>levels</code>, <code>tzone</code>, …) preserved end-to-end. Pairlists are coerced to lists. <code><a href="reference/share.html">share()</a></code> returns ALTREP wrappers that point into the shared pages — no deserialization, no per-process memory allocation.</p>
+<p>All atomic vector types and lists / data frames are written directly into shared memory, with attributes preserved end-to-end. Pairlists are coerced to lists. <code><a href="reference/share.html">share()</a></code> returns ALTREP wrappers that point into the shared pages — no deserialization, no per-process memory allocation.</p>
 <p>All other R objects (environments, closures, language objects) are returned unchanged by <code><a href="reference/share.html">share()</a></code> — no shared memory region is created.</p>
 <figure><img src="reference/figures/mori-diagram.svg" alt="Diagram showing share() writing an object once into OS-backed shared memory, which is then memory-mapped by other processes using zero-copy ALTREP wrappers"><figcaption aria-hidden="true">
 Diagram showing share() writing an object once into OS-backed shared memory, which is then memory-mapped by other processes using zero-copy ALTREP wrappers
@@ -190,13 +190,13 @@ Diagram showing share() writing an object once into OS-backed shared memory, whi
 <div class="section level3">
 <h3 id="lazy-access">Lazy access<a class="anchor" aria-label="anchor" href="#lazy-access"></a>
 </h3>
-<p>A data frame with 10 columns lives in a single shared region; a task that touches 3 columns pays for 3. Character strings are accessed lazily per element.</p>
+<p>A data frame with 10 columns lives in a single shared region. A task that touches 3 columns pays for 3. Character strings are accessed lazily per element.</p>
 </div>
 <div class="section level3">
 <h3 id="lifetime">Lifetime<a class="anchor" aria-label="anchor" href="#lifetime"></a>
 </h3>
 <p>Shared memory is managed by R’s garbage collector. The SHM region stays alive as long as the shared object (or any element extracted from it) is referenced in R. When no references remain, the garbage collector frees the shared memory automatically.</p>
-<p><strong>Important:</strong> Always assign the result of <code><a href="reference/share.html">share()</a></code> to a variable. The shared memory is kept alive by the R object reference — if the result is used as a temporary (not assigned), the garbage collector may free the shared memory before a consumer process has mapped it.</p>
+<p><strong>Important:</strong> Always assign the result of <code><a href="reference/share.html">share()</a></code> to a variable. The shared memory is kept alive by the R object reference — if the result is used temporarily (not assigned), the garbage collector may free the shared memory before a consumer process has mapped it.</p>
 </div>
 <div class="section level3">
 <h3 id="copy-on-write">Copy-on-write<a class="anchor" aria-label="anchor" href="#copy-on-write"></a>
@@ -216,6 +216,7 @@ Diagram showing share() writing an object once into OS-backed shared memory, whi
   </main><aside class="col-md-3"><div class="links">
 <h2 data-toc-skip>Links</h2>
 <ul class="list-unstyled">
+<li><a href="https://cloud.r-project.org/package=mori" class="external-link">View on CRAN</a></li>
 <li><a href="https://github.com/shikokuchuo/mori/" class="external-link">Browse source code</a></li>
 <li><a href="https://github.com/shikokuchuo/mori/issues" class="external-link">Report a bug</a></li>
 </ul>
