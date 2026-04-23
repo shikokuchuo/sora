@@ -2,7 +2,7 @@
 
 Extract the SHM region name from a shared object. This name can be
 passed to
-[`map_shared()`](https://shikokuchuo.github.io/sora/dev/reference/map_shared.md)
+[`map_shared()`](https://shikokuchuo.net/mori/dev/reference/map_shared.md)
 to open the same region in another process.
 
 ## Usage
@@ -16,23 +16,23 @@ shared_name(x)
 - x:
 
   a shared object as returned by
-  [`sora()`](https://shikokuchuo.github.io/sora/dev/reference/sora.md)
-  or
-  [`map_shared()`](https://shikokuchuo.github.io/sora/dev/reference/map_shared.md).
+  [`share()`](https://shikokuchuo.net/mori/dev/reference/share.md) or
+  [`map_shared()`](https://shikokuchuo.net/mori/dev/reference/map_shared.md).
 
 ## Value
 
-A character string identifying the shared memory region.
+A character string identifying the shared memory region, or the empty
+string `""` if `x` is not a shared object.
 
 ## See also
 
-[`map_shared()`](https://shikokuchuo.github.io/sora/dev/reference/map_shared.md)
+[`map_shared()`](https://shikokuchuo.net/mori/dev/reference/map_shared.md)
 to open a shared region by name.
 
 ## Examples
 
 ``` r
-x <- sora(rnorm(100))
+x <- share(rnorm(100))
 shared_name(x)
-#> [1] "/sora_198d_2"
+#> [1] "/mori_198f_3"
 ```

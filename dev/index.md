@@ -1,72 +1,77 @@
-# sora
+# mori
 
 ``` R
   ________
- /\ sora  \
+ /\ mori  \
 /  \       \
-\  /  空   /
+\  /  森   /
  \/_______/
 ```
 
-Shared Objects for R Applications
+Shared Memory for R Objects
 
-→ [`sora()`](https://shikokuchuo.github.io/sora/dev/reference/sora.md)
+→ [`share()`](https://shikokuchuo.net/mori/dev/reference/share.md)
 writes an R object into shared memory and returns a shared version
 
-→ ALTREP serialization hooks — shared objects serialize compactly
+→ ALTREP serialization hooks — shared objects serialize compactly and
+work transparently with
+[`serialize()`](https://rdrr.io/r/base/serialize.html) and
+[`mirai()`](https://mirai.r-lib.org/reference/mirai.html)
 
-→ ALTREP-backed lazy access — columns materialize on first touch, not
-before
+→ ALTREP-backed lazy access — a 100-column data frame is one `mmap`;
+columns materialize on first touch
 
-→ OS-level shared memory (POSIX / Win32), no external dependencies
+→ OS-level shared memory (POSIX / Win32) — pure C, no external
+dependencies; read-only in other processes, preventing corruption of
+shared data
 
-→ Automatic cleanup — shared memory is freed by R’s garbage collector
+→ Automatic cleanup — shared memory is freed when the R object is
+garbage collected
 
   
 
-### Installation
+## Installation
 
 ``` r
-install.packages("sora", repos = "https://shikokuchuo.r-universe.dev")
+install.packages("mori")
 ```
 
-### Quick Start
+## Quick Start
 
-[`sora()`](https://shikokuchuo.github.io/sora/dev/reference/sora.md)
-writes an R object into shared memory and returns a shared version
-backed by zero-copy ALTREP. Shared objects serialize compactly via
-ALTREP serialization hooks, working transparently with mirai and any R
-serialization path. Shared memory is automatically freed when the object
-is garbage collected.
+[`share()`](https://shikokuchuo.net/mori/dev/reference/share.md) writes
+an R object once into shared memory and returns a zero-copy ALTREP view.
+Shared objects serialize compactly via ALTREP serialization hooks,
+working transparently with mirai and any R serialization path. Shared
+memory is automatically freed when the object is garbage collected.
 
 ``` r
-library(sora)
+library(mori)
 
 # Share a vector — returns an ALTREP-backed object
-x <- sora(rnorm(1e6))
+x <- share(rnorm(1e6))
 mean(x)
-#> [1] -0.0009597292
+#> [1] 0.0005982035
 
 # Serialized form is ~100 bytes, not ~8 MB
-length(serialize(x, NULL))
+x |> serialize(NULL) |> length()
 #> [1] 124
 ```
 
-### Sharing by Name
+## Sharing by Name
 
-[`shared_name()`](https://shikokuchuo.github.io/sora/dev/reference/shared_name.md)
+[`shared_name()`](https://shikokuchuo.net/mori/dev/reference/shared_name.md)
 extracts the SHM name from a shared object.
-[`map_shared()`](https://shikokuchuo.github.io/sora/dev/reference/map_shared.md)
+[`map_shared()`](https://shikokuchuo.net/mori/dev/reference/map_shared.md)
 opens a shared region by name — useful for accessing the same data from
 another process without serialization:
 
 ``` r
-x <- sora(1:1e6)
+x <- share(1:1e6)
 
 # Extract the SHM name
 nm <- shared_name(x)
 nm
-#> [1] "/sora_b589_1"
+#> [1] "/mori_4c0f_1"
 
 # Another process can map the same region by name
 y <- map_shared(nm)
@@ -74,10 +79,10 @@ identical(x[], y[])
 #> [1] TRUE
 ```
 
-### Use with mirai
+## Use with mirai
 
 Shared objects can be sent to local daemons — the ALTREP serialization
-hooks ensure only the SHM name crosses the wire, and the worker maps the
+hooks ensure only the SHM name crosses the wire, and the daemon maps the
 same physical memory.
 
 ``` r
@@ -86,16 +91,16 @@ library(mirai)
 
 daemons(1)
 
-x <- sora(rnorm(1e6))
+x <- share(rnorm(1e6))
 
 # Worker maps the same shared memory — 0 bytes copied
 m <- mirai(list(mean = mean(x), size = lobstr::obj_size(x)), x = x)
 m[]
 #> $mean
-#> [1] 0.001674302
+#> [1] 0.0008675476
 #> 
 #> $size
-#> 792 B
+#> 840 B
 
 daemons(0)
 ```
@@ -105,125 +110,85 @@ travels as a reference to its position in the parent shared region, not
 as the full data:
 
 ``` r
-daemons(4)
+daemons(3)
 
-# Share a list — all 4 vectors in a single shared region
-x <- sora(list(a = rnorm(1e6), b = rnorm(1e6), c = rnorm(1e6), d = rnorm(1e6)))
+# Share a list — all 3 vectors in a single shared region
+x <- list(a = rnorm(1e6), b = rnorm(1e6), c = rnorm(1e6)) |> share()
 
 # Each element is sent as (parent_name, index) — zero-copy on the worker
-mirai_map(x, \(v) list(mean = mean(v), size = lobstr::obj_size(v)))[.flat]
-#> $a.mean
-#> [1] 0.0003616497
-#> 
-#> $a.size
-#> 728 B
-#> 
-#> $b.mean
-#> [1] 0.001056395
-#> 
-#> $b.size
-#> 728 B
-#> 
-#> $c.mean
-#> [1] -0.0011767
-#> 
-#> $c.size
-#> 728 B
-#> 
-#> $d.mean
-#> [1] 0.001649881
-#> 
-#> $d.size
-#> 728 B
+mirai_map(x, \(v) lobstr::obj_size(v) |> format())[.flat]
+#>       a       b       c 
+#> "840 B" "840 B" "840 B"
 
 daemons(0)
 ```
 
-### Why sora
+## Why mori
 
 Parallel computing multiplies memory. When 8 workers each need the same
 210 MB dataset, that is 1.7 GB of serialization, transfer, and
-deserialization — plus 8 separate copies consuming RAM.
+deserialization — with 8 separate copies consuming RAM.
 
-sora eliminates all of it.
-[`sora()`](https://shikokuchuo.github.io/sora/dev/reference/sora.md)
-writes data into shared memory once. Each worker maps the same physical
-pages, receiving a reference of ~300 bytes instead of the full dataset —
-a 700,000x reduction:
-
-``` r
-n <- 5000000L
-
-set.seed(42)
-df <- data.frame(
-  x1 = rnorm(n), x2 = rnorm(n), x3 = rnorm(n),
-  x4 = runif(n), x5 = runif(n),
-  group = sample.int(100L, n, replace = TRUE)
-)
-
-shared_df <- sora(df)
-
-# Per-task payload: ~210 MB vs ~300 bytes
-length(serialize(df, NULL))
-#> [1] 220000263
-length(serialize(shared_df, NULL))
-#> [1] 304
-```
-
-Memory savings this large translate directly into performance. Less
-serialization, less transfer, less allocation — each worker starts
-computing sooner and the system spends less time moving data:
+mori eliminates all of it.
+[`share()`](https://shikokuchuo.net/mori/dev/reference/share.md) writes
+data into shared memory once. Each worker maps the same physical pages,
+receiving a reference of ~300 bytes instead of the full dataset — a
+payload ~700,000 times smaller, which translates into a significant
+saving in memory usage as well as total runtime:
 
 ``` r
-boot_means <- function(seed, data) {
-  set.seed(seed)
-  idx <- sample.int(nrow(data), replace = TRUE)
-  colMeans(data[idx, ])
-}
-
-seeds <- seq_len(8L)
 daemons(8)
 
-# Without sora — each daemon deserializes a full copy
-system.time(mirai_map(seeds, boot_means, data = df)[])
-#>    user  system elapsed 
-#>   2.362  44.225   6.610
+# 200 MB data frame — 5 columns × 5M rows
+df <- as.data.frame(matrix(rnorm(25e6), ncol = 5))
+shared_df <- share(df)
 
-# With sora — each daemon maps the same shared memory
-system.time(mirai_map(seeds, boot_means, data = shared_df)[])
+boot_mean <- \(i, data) colMeans(data[sample(nrow(data), replace = TRUE), ])
+
+# Without mori — each daemon deserializes a full copy
+mirai_map(1:8, boot_mean, data = df)[] |> system.time()
 #>    user  system elapsed 
-#>   1.501  29.514   4.409
+#>   2.135  38.222   5.823
+
+# With mori — each daemon maps the same shared memory
+mirai_map(1:8, boot_mean, data = shared_df)[] |> system.time()
+#>    user  system elapsed 
+#>   1.377  27.121   3.949
 
 daemons(0)
 ```
 
-### How It Works
+## How It Works
 
-sora operates in two tiers depending on the object:
+### What gets shared
 
-**Tier 2 — zero-copy (ALTREP).** All atomic vectors — including
-character vectors and those with attributes (factors, Dates, named
-vectors, etc.) — and data frame columns are written directly into shared
-memory. Pairlists are coerced to lists and handled the same way.
-[`sora()`](https://shikokuchuo.github.io/sora/dev/reference/sora.md)
-returns ALTREP wrappers that point into the shared pages — no
-deserialization, no per-process memory allocation. A data frame with 10
-columns lives in a single shared region; a task that touches 3 columns
-pays for 3. Character strings are accessed lazily per element.
+All atomic vector types and lists / data frames are written directly
+into shared memory, with attributes preserved end-to-end. Pairlists are
+coerced to lists.
+[`share()`](https://shikokuchuo.net/mori/dev/reference/share.md) returns
+ALTREP wrappers that point into the shared pages — no deserialization,
+no per-process memory allocation.
 
-**Tier 1 — pass-through.** All other R objects (environments, closures,
-language objects) are returned unchanged by
-[`sora()`](https://shikokuchuo.github.io/sora/dev/reference/sora.md).
+All other R objects (environments, closures, language objects) are
+returned unchanged by
+[`share()`](https://shikokuchuo.net/mori/dev/reference/share.md) — no
+shared memory region is created.
 
-![Diagram showing sora() writing an object once into OS-backed shared
+![Diagram showing share() writing an object once into OS-backed shared
 memory, which is then memory-mapped by other processes using zero-copy
-ALTREP wrappers](reference/figures/sora-diagram.svg)
+ALTREP wrappers](reference/figures/mori-diagram.svg)
 
-Diagram showing sora() writing an object once into OS-backed shared
+Diagram showing share() writing an object once into OS-backed shared
 memory, which is then memory-mapped by other processes using zero-copy
 ALTREP wrappers
 
-### Automatic Lifetime Management
+### Lazy access
+
+A data frame with 10 columns lives in a single shared region. A task
+that touches 3 columns pays for 3. Character strings are accessed lazily
+per element.
+
+### Lifetime
 
 Shared memory is managed by R’s garbage collector. The SHM region stays
 alive as long as the shared object (or any element extracted from it) is
@@ -231,13 +196,12 @@ referenced in R. When no references remain, the garbage collector frees
 the shared memory automatically.
 
 **Important:** Always assign the result of
-[`sora()`](https://shikokuchuo.github.io/sora/dev/reference/sora.md) to
-a variable. The shared memory is kept alive by the R object reference —
-if the result is used as a temporary (not assigned), the garbage
-collector may free the shared memory before a consumer process has
-mapped it.
+[`share()`](https://shikokuchuo.net/mori/dev/reference/share.md) to a
+variable. The shared memory is kept alive by the R object reference — if
+the result is used temporarily (not assigned), the garbage collector may
+free the shared memory before a consumer process has mapped it.
 
-### Copy-on-Write
+### Copy-on-write
 
 Shared data is mapped read-only. Mutations are always local — R’s
 copy-on-write mechanism ensures other processes continue reading the
@@ -249,3 +213,9 @@ original shared data:
 - **Modifying values** within a shared vector (e.g., `X[1] <- 0`)
   materializes just that vector into a private copy. Other vectors in
   the same shared region stay zero-copy.
+
+–
+
+Please note that the mori project is released with a [Contributor Code
+of Conduct](https://shikokuchuo.net/mori/CODE_OF_CONDUCT.html). By
+contributing to this project, you agree to abide by its terms.

@@ -2,8 +2,8 @@
 
 Returns `TRUE` if `x` is an ALTREP object backed by shared memory
 (created by
-[`sora()`](https://shikokuchuo.github.io/sora/dev/reference/sora.md) or
-[`map_shared()`](https://shikokuchuo.github.io/sora/dev/reference/map_shared.md)),
+[`share()`](https://shikokuchuo.net/mori/dev/reference/share.md) or
+[`map_shared()`](https://shikokuchuo.net/mori/dev/reference/map_shared.md)),
 `FALSE` otherwise.
 
 ## Usage
@@ -25,7 +25,7 @@ is_shared(x)
 ## Examples
 
 ``` r
-x <- sora(rnorm(100))
+x <- share(rnorm(100))
 is_shared(x)
 #> [1] TRUE
 is_shared(rnorm(100))

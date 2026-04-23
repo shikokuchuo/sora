@@ -1,4 +1,4 @@
 # License
 
     YEAR: 2026
-    COPYRIGHT HOLDER: sora authors
+    COPYRIGHT HOLDER: mori authors

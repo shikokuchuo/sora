@@ -1,7 +1,9 @@
 # Changelog
 
-## sora (development version)
+## mori (development version)
 
-## sora 0.0.1
+## mori 0.1.0
 
-- Initial GitHub release.
+CRAN release: 2026-04-21
+
+- Initial CRAN release.
