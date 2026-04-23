@@ -14,3 +14,9 @@ navbar:
       icon: fa-cube
       href: https://shikokuchuo.net/
       aria-label: shikokuchuo
+development:
+  mode: auto
+news:
+  releases:
+  - text: "mori 0.1.0"
+    href: https://opensource.posit.co/blog/2026-04-23_mori-0-1-0/
